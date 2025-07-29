@@ -66,6 +66,14 @@ window.showAddForm = function() {
         <option value="reading">Читаю</option>
         <option value="read">Прочитал</option>
       </select>
+      <select id="rating">
+        <option value="">Без оценки</option>
+        <option value="1">⭐ 1</option>
+        <option value="2">⭐ 2</option>
+        <option value="3">⭐ 3</option>
+        <option value="4">⭐ 4</option>
+        <option value="5">⭐ 5</option>
+      </select>
       <button type="submit">Сохранить</button>
     </form>
     <button onclick="renderMainScreen()">← Назад</button>
@@ -74,18 +82,18 @@ window.showAddForm = function() {
 
 window.submitAddForm = async function(e) {
   e.preventDefault();
+  const ratingValue = document.getElementById("rating").value;
   const book = {
     id: crypto.randomUUID(),
     user_id: userId,
     title: document.getElementById("title").value,
     author: document.getElementById("author").value,
-    cover_url: document.getElementById("cover_url").value,
+    cover_url: document.getElementById("cover_url").value || "https://via.placeholder.com/56x80",
     status: document.getElementById("status").value,
-    rating: null,
- 
+    rating: ratingValue ? Number(ratingValue) : null,
     comment: "",
     added_at: new Date().toISOString().split("T")[0],
-    finished_at: book.status === 'read' ? new Date().toISOString().split("T")[0] : null
+    finished_at: document.getElementById("status").value === 'read' ? new Date().toISOString().split("T")[0] : null
   };
   await addBook(book);
   currentTab = book.status;
