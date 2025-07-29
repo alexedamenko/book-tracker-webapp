@@ -79,7 +79,7 @@ window.submitAddForm = async function(e) {
     user_id: userId,
     title: document.getElementById("title").value,
     author: document.getElementById("author").value,
-    cover_url: document.getElementById("cover_url").value || "https://via.placeholder.com/56x80",
+    cover_url: document.getElementById("cover_url").value,
     status: document.getElementById("status").value,
     rating: null,
     comment: "",
