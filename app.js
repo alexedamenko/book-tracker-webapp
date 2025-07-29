@@ -1,46 +1,57 @@
+// 📁 index.html — Главная страница
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Мой книжный трекер</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div id="app">Загрузка...</div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
+
+
+// 📁 style.css — [без изменений, см. предыдущую версию]
+
+
+// 📁 api.js — Подключение к Supabase
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+const supabaseUrl = 'https://sodehdbidjsroqevtglo.supabase.co';
+const supabaseKey = 'ey_fake_anon_key_for_demo';
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
+export async function getBooks(userId) {
+  const { data, error } = await supabase
+    .from('user_books')
+    .select('*')
+    .eq('user_id', userId)
+    .order('added_at', { ascending: false });
+  if (error) console.error(error);
+  return data || [];
+}
+
+export async function addBook(book) {
+  const { error } = await supabase.from('user_books').insert([book]);
+  if (error) console.error(error);
+}
+
+
 // 📁 app.js — Основная логика WebApp
+import { supabase, getBooks, addBook } from './api.js';
+
 Telegram.WebApp.ready();
-const userId = Telegram.WebApp.initDataUnsafe.user?.id;
+const userId = Telegram.WebApp.initDataUnsafe.user?.id || 'demo_user';
 
-const books = [
-  {
-    id: "bart",
-    title: "Мифообразование в современном мире",
-    author: "Ролан Барт",
-    cover_url: "https://upload.wikimedia.org/wikipedia/ru/thumb/1/1f/Roland_Barthes.jpg/200px-Roland_Barthes.jpg",
-    status: "read",
-    rating: 5,
-    comment: "",
-    added_at: "2024-04-12",
-    finished_at: "2024-04-12"
-  },
-  {
-    id: "wilde",
-    title: "Портрет Дориана Грея",
-    author: "Оскар Уайльд",
-    cover_url: "https://upload.wikimedia.org/wikipedia/ru/e/e7/Portret_doriana.jpg",
-    status: "read",
-    rating: 4.5,
-    comment: "",
-    added_at: "2024-03-02",
-    finished_at: "2024-03-02"
-  },
-  {
-    id: "atwood",
-    title: "Слепой убийца",
-    author: "Маргарет Этвуд",
-    cover_url: "https://upload.wikimedia.org/wikipedia/ru/5/56/The_Blind_Assassin.jpg",
-    status: "read",
-    rating: 5,
-    comment: "",
-    added_at: "2024-01-15",
-    finished_at: "2024-01-15"
-  }
-];
-
+let books = [];
 let currentTab = "read";
 
-function renderMainScreen() {
+async function renderMainScreen() {
+  books = await getBooks(userId);
   const container = document.getElementById("app");
   const filtered = books.filter(b => b.status === currentTab);
 
@@ -66,10 +77,10 @@ function renderMainScreen() {
   `;
 }
 
-function switchTab(tab) {
+window.switchTab = function(tab) {
   currentTab = tab;
   renderMainScreen();
-}
+};
 
 function renderBookCard(book) {
   return `
@@ -85,7 +96,7 @@ function renderBookCard(book) {
   `;
 }
 
-function showAddForm() {
+window.showAddForm = function() {
   const container = document.getElementById("app");
   container.innerHTML = `
     <h2>➕ Добавление книги</h2>
@@ -102,12 +113,13 @@ function showAddForm() {
     </form>
     <button onclick="renderMainScreen()">← Назад</button>
   `;
-}
+};
 
-function submitAddForm(e) {
+window.submitAddForm = async function(e) {
   e.preventDefault();
   const book = {
-    id: Date.now().toString(),
+    id: crypto.randomUUID(),
+    user_id: userId,
     title: document.getElementById("title").value,
     author: document.getElementById("author").value,
     cover_url: document.getElementById("cover_url").value || "https://via.placeholder.com/56x80",
@@ -117,9 +129,9 @@ function submitAddForm(e) {
     added_at: new Date().toISOString().split("T")[0],
     finished_at: null
   };
-  books.push(book);
+  await addBook(book);
   currentTab = book.status;
   renderMainScreen();
-}
+};
 
 renderMainScreen();
