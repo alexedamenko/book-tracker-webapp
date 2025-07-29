@@ -2,7 +2,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
 const supabaseUrl = 'https://sodehdbidjsroqevtglo.supabase.co';
-const supabaseKey = 'ey_fake_anon_key_for_demo';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvZGVoZGJpZGpzcm9xZXZ0Z2xvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3OTE0MTUsImV4cCI6MjA2OTM2NzQxNX0.mjcNOakxxDIscPdzjXhJoEy5z5J3XrdNa_RdcV28xXM';
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function getBooks(userId) {
