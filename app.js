@@ -53,7 +53,7 @@ function renderMainScreen() {
       <div class="nav-tab ${currentTab === 'want_to_read' ? 'active' : ''}" onclick="switchTab('want_to_read')">Хочу прочитать</div>
     </div>
 
-    <button onclick="addBookManually()">+ Добавить книгу</button>
+    <button onclick="showAddForm()">+ Добавить книгу</button>
 
     <div id="book-list">
       ${filtered.map(renderBookCard).join("")}
@@ -85,8 +85,41 @@ function renderBookCard(book) {
   `;
 }
 
-function addBookManually() {
-  alert("Форма добавления книги — в разработке...");
+function showAddForm() {
+  const container = document.getElementById("app");
+  container.innerHTML = `
+    <h2>➕ Добавление книги</h2>
+    <form class="add-book-form" onsubmit="submitAddForm(event)">
+      <input type="text" id="title" placeholder="Название книги" required />
+      <input type="text" id="author" placeholder="Автор" required />
+      <input type="url" id="cover_url" placeholder="Ссылка на обложку (необязательно)" />
+      <select id="status">
+        <option value="want_to_read">Хочу прочитать</option>
+        <option value="reading">Читаю</option>
+        <option value="read">Прочитал</option>
+      </select>
+      <button type="submit">Сохранить</button>
+    </form>
+    <button onclick="renderMainScreen()">← Назад</button>
+  `;
+}
+
+function submitAddForm(e) {
+  e.preventDefault();
+  const book = {
+    id: Date.now().toString(),
+    title: document.getElementById("title").value,
+    author: document.getElementById("author").value,
+    cover_url: document.getElementById("cover_url").value || "https://via.placeholder.com/56x80",
+    status: document.getElementById("status").value,
+    rating: null,
+    comment: "",
+    added_at: new Date().toISOString().split("T")[0],
+    finished_at: null
+  };
+  books.push(book);
+  currentTab = book.status;
+  renderMainScreen();
 }
 
 renderMainScreen();
