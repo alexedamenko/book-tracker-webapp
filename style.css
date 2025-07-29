@@ -1,37 +1,85 @@
-// 📁 style.css — Стили
 body {
-  font-family: sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 0;
+  margin: 0;
+  background: #f2f2f7;
+}
+
+#app {
   padding: 16px;
-  background: #f9f9f9;
 }
 
 h2 {
   margin-bottom: 12px;
 }
 
+.nav-tabs {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 16px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 15px;
+}
+
+.nav-tab {
+  flex: 1;
+  text-align: center;
+  padding: 12px;
+  cursor: pointer;
+  color: #888;
+}
+
+.nav-tab.active {
+  color: #007aff;
+  font-weight: bold;
+  border-bottom: 2px solid #007aff;
+  background-color: #f0f8ff;
+}
+
 .book-card {
   display: flex;
   gap: 12px;
   background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  border-radius: 12px;
   padding: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 .book-card img {
-  width: 60px;
-  height: 90px;
-  object-fit: cover;
+  width: 56px;
+  height: 80px;
   border-radius: 4px;
+  object-fit: cover;
+}
+
+.book-card .info {
+  font-size: 14px;
 }
 
 button {
-  padding: 8px 16px;
-  border: none;
+  padding: 10px 16px;
   background-color: #007aff;
   color: white;
-  border-radius: 6px;
-  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 15px;
   cursor: pointer;
+}
+
+.footer-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+
+.footer-buttons button {
+  flex: 1;
+  margin: 0 4px;
+  background: #eee;
+  color: #333;
+  font-size: 14px;
 }
