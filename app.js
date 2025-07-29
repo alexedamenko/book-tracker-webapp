@@ -82,9 +82,10 @@ window.submitAddForm = async function(e) {
     cover_url: document.getElementById("cover_url").value,
     status: document.getElementById("status").value,
     rating: null,
+ 
     comment: "",
     added_at: new Date().toISOString().split("T")[0],
-    finished_at: null
+    finished_at: book.status === 'read' ? new Date().toISOString().split("T")[0] : null
   };
   await addBook(book);
   currentTab = book.status;
