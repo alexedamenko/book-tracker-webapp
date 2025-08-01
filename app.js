@@ -32,7 +32,7 @@ async function renderMainScreen() {
     </div>
 
     <div class="footer-buttons">
-      <button id="exportBtn">📤 Экспорт</button>
+      <button id="exportBtn">📤Export</button>
       <div id="formatMenu" class="hidden">
         <div class="format-option" data-format="csv">CSV</div>
         <div class="format-option" data-format="json">JSON</div>
