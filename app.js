@@ -171,30 +171,36 @@ window.editBook = function(id) {
   renderMainScreen();
 });
 };
+
 window.submitEditForm = async function(e, id) {
   e.preventDefault();
 
+  const ratingValue = document.getElementById("rating").value;
   const updated = {
-    title: document.getElementById("title").value,
-    author: document.getElementById("author").value,
-    cover_url: document.getElementById("cover_url").value,
+    title: document.getElementById("title").value.trim(),
+    author: document.getElementById("author").value.trim(),
+    cover_url: document.getElementById("cover_url").value.trim(),
     status: document.getElementById("status").value,
-    rating: Number(document.getElementById("rating").value) || null,
-    comment: document.getElementById("comment").value,
+    rating: ratingValue ? Number(ratingValue) : null,
+    comment: document.getElementById("comment").value.trim(),
     added_at: document.getElementById("added_at").value || null,
     started_at: document.getElementById("started_at").value || null,
-    finished_at: document.getElementById("finished_at").value || null,
+    finished_at: document.getElementById("finished_at").value || null
   };
 
-  const { error } = await supabase.from('user_books').update(updated).eq("id", id);
+  const { error } = await supabase
+    .from('user_books')
+    .update(updated)
+    .eq("id", id);
 
   if (error) {
-    alert("❌ Ошибка при обновлении");
+    console.error(error);
+    alert("❌ Ошибка при обновлении книги");
     return;
   }
 
   alert("✅ Сохранено");
-  await renderMainScreen();
+  renderMainScreen(); // перерисовываем
 };
 window.deleteBook = async function(id) {
   const confirmDelete = confirm("Удалить эту книгу? Это действие нельзя отменить.");
