@@ -84,8 +84,10 @@ function renderBookCard(book) {
         ${book.started_at ? `📖 Начал: ${book.started_at}<br/>` : ""}
         ${book.finished_at ? `🏁 Закончил: ${book.finished_at}<br/>` : ""}
         <div class="book-actions">
-          <button onclick="editBook('${book.id}')">✏️ Редактировать</button>
-          <button onclick="deleteBook('${book.id}')">🗑 Удалить</button>
+         <div class="button-row">
+  <button class="edit-btn" onclick="editBook('${book.id}')">✏️ Редактировать</button>
+  <button class="delete-btn" onclick="deleteBook('${book.id}')">🗑️ Удалить</button>
+</div>
         </div>
       </div>
     </div>
