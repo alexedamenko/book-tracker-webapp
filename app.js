@@ -144,33 +144,61 @@ window.editBook = function(id) {
   const container = document.getElementById("app");
 
   container.innerHTML = `
-    <h2>✏️ Редактирование</h2>
-    <form onsubmit="submitEditForm(event, '${id}')">
+    <h2>✏️ Редактирование книги</h2>
+    <form id="editForm">
       <input type="text" id="title" value="${book.title}" required />
       <input type="text" id="author" value="${book.author}" required />
       <input type="url" id="cover_url" value="${book.cover_url}" />
-      <select id="status">
-        <option value="want_to_read" ${book.status === "want_to_read" ? "selected" : ""}>Хочу прочитать</option>
-        <option value="reading" ${book.status === "reading" ? "selected" : ""}>Читаю</option>
-        <option value="read" ${book.status === "read" ? "selected" : ""}>Прочитал</option>
-      </select>
-      <select id="rating">
-        <option value="">Без оценки</option>
-        ${[1, 2, 3, 4, 5].map(n =>
-          `<option value="${n}" ${book.rating === n ? "selected" : ""}>⭐ ${n}</option>`).join("")}
-      </select>
-      <textarea id="comment" placeholder="Комментарий">${book.comment || ""}</textarea>
       <input type="date" id="added_at" value="${book.added_at || ""}" />
       <input type="date" id="started_at" value="${book.started_at || ""}" />
       <input type="date" id="finished_at" value="${book.finished_at || ""}" />
+      <textarea id="comment" placeholder="Комментарий">${book.comment || ""}</textarea>
+      <select id="status">
+        <option value="want_to_read" ${book.status === 'want_to_read' ? 'selected' : ''}>Хочу прочитать</option>
+        <option value="reading" ${book.status === 'reading' ? 'selected' : ''}>Читаю</option>
+        <option value="read" ${book.status === 'read' ? 'selected' : ''}>Прочитал</option>
+      </select>
+      <select id="rating">
+        <option value="">Без оценки</option>
+        ${[1,2,3,4,5].map(n => `<option value="${n}" ${book.rating === n ? 'selected' : ''}>⭐ ${n}</option>`).join("")}
+      </select>
       <button type="submit">💾 Сохранить</button>
     </form>
     <button id="backBtn">← Назад</button>
   `;
-  document.getElementById("backBtn").addEventListener("click", () => {
-  renderMainScreen();
-});
+
+  document.getElementById("backBtn").addEventListener("click", renderMainScreen);
+
+  document.getElementById("editForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    
+    const updated = {
+      title: document.getElementById("title").value.trim(),
+      author: document.getElementById("author").value.trim(),
+      cover_url: document.getElementById("cover_url").value.trim(),
+      status: document.getElementById("status").value,
+      rating: document.getElementById("rating").value ? Number(document.getElementById("rating").value) : null,
+      comment: document.getElementById("comment").value.trim(),
+      added_at: document.getElementById("added_at").value || null,
+      started_at: document.getElementById("started_at").value || null,
+      finished_at: document.getElementById("finished_at").value || null
+    };
+
+    const { error } = await supabase
+      .from("user_books")
+      .update(updated)
+      .eq("id", id);
+
+    if (error) {
+      console.error("Ошибка при обновлении:", error);
+      alert("❌ Не удалось сохранить изменения");
+    } else {
+      alert("✅ Сохранено");
+      renderMainScreen();
+    }
+  });
 };
+
 
 window.submitEditForm = async function(e, id) {
   e.preventDefault();
