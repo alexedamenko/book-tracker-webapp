@@ -2,7 +2,11 @@
 import { supabase, getBooks, addBook } from './api.js';
 
 Telegram.WebApp.ready();
-const userId = Telegram.WebApp.initDataUnsafe.user?.id || 'demo_user';
+if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
+  alert("❗ Пожалуйста, открой приложение через Telegram");
+  throw new Error("WebApp запущен вне Telegram");
+}
+const userId = Telegram.WebApp.initDataUnsafe.user.id.toString();
 
 let books = [];
 let currentTab = "read";
