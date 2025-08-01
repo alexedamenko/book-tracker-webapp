@@ -117,7 +117,7 @@ window.showAddForm = function() {
       </select>
       <button type="submit">Сохранить</button>
     </form>
-    <button onclick="renderMainScreen()">← Назад</button>
+    <button id="backBtn">← Назад</button>
   `;
 };
 
