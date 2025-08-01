@@ -108,6 +108,21 @@ renderMainScreen();
 
 
 // Экспорт данных
+import { uploadExportFile } from './api.js';
+
+async function uploadAndShare(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = await uploadExportFile(filename, blob, type);
+
+  if (url) {
+    alert("✅ Файл готов к скачиванию");
+    window.open(url, "_blank");
+  } else {
+    alert("❌ Ошибка при экспорте файла");
+  }
+}
+
+
 document.getElementById("exportBtn").addEventListener("click", () => {
   const menu = document.getElementById("formatMenu");
   menu.classList.toggle("hidden");
@@ -137,15 +152,17 @@ function exportToCSV(data) {
   if (!data || !data.length) return;
 
   const header = Object.keys(data[0]);
-  const rows = data.map(row => header.map(field => `"${(row[field] || "").toString().replace(/"/g, '""')}"`));
+  const rows = data.map(row =>
+    header.map(field => `"${(row[field] || "").toString().replace(/"/g, '""')}"`)
+  );
   const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
 
-  downloadFile(csvContent, "books.csv", "text/csv");
+  uploadAndShare(csvContent, `books-${userId}.csv`, "text/csv");
 }
 
 function exportToJSON(data) {
   const jsonContent = JSON.stringify(data, null, 2);
-  downloadFile(jsonContent, "books.json", "application/json");
+  uploadAndShare(jsonContent, `books-${userId}.json`, "application/json");
 }
 
 function downloadFile(content, filename, type) {
