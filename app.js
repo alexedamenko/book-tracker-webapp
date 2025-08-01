@@ -141,10 +141,14 @@ function exportToCSV(data) {
   const rows = data.map(row =>
     header.map(field => `"${(row[field] || "").toString().replace(/"/g, '""')}"`)
   );
-  const csvContent = "\uFEFF" + [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+  
+  // Добавляем BOM (Byte Order Mark) для корректного открытия в Excel
+  const bom = "\uFEFF";
+  const csvContent = bom + [header.join(","), ...rows.map(r => r.join(","))].join("\n");
 
-  uploadAndShare(csvContent, `books-${userId}.csv`, "text/csv;charset=utf-8");
+  uploadAndShare(csvContent, `books-${userId}.csv`, "text/csv");
 }
+
 
 function exportToJSON(data) {
   const jsonContent = JSON.stringify(data, null, 2);
