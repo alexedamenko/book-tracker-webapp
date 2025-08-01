@@ -179,3 +179,30 @@ button {
     background-color: #e24d4d;
   }
 }
+.save-btn, .back-btn {
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  font-size: 15px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.save-btn {
+  background-color: #4caf50;
+  color: white;
+}
+.save-btn:hover {
+  background-color: #43a047;
+}
+
+.back-btn {
+  background-color: #e0e0e0;
+  color: #333;
+}
+.back-btn:hover {
+  background-color: #d5d5d5;
+}
