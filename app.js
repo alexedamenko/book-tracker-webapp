@@ -119,9 +119,9 @@ document.querySelectorAll(".format-option").forEach(option => {
     document.getElementById("formatMenu").classList.add("hidden");
 
     const { data, error } = await supabase
-      .from("books")
-      .select("*")
-      .eq("user_id", userId);
+  .from("user_books")
+  .select("*")
+  .eq("user_id", userId);
 
     if (error) {
       alert("Ошибка при получении данных");
