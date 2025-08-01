@@ -101,3 +101,53 @@ window.submitAddForm = async function(e) {
 };
 
 renderMainScreen();
+// Экспорт данных
+document.getElementById("exportBtn").addEventListener("click", () => {
+  const menu = document.getElementById("formatMenu");
+  menu.classList.toggle("hidden");
+});
+
+document.querySelectorAll(".format-option").forEach(option => {
+  option.addEventListener("click", async () => {
+    const format = option.getAttribute("data-format");
+    document.getElementById("formatMenu").classList.add("hidden");
+
+    const { data, error } = await supabase
+      .from("books")
+      .select("*")
+      .eq("user_id", window.Telegram.WebApp.initDataUnsafe.user?.id);
+
+    if (error) {
+      alert("Ошибка при получении данных");
+      return;
+    }
+
+    if (format === "csv") exportToCSV(data);
+    if (format === "json") exportToJSON(data);
+  });
+});
+
+function exportToCSV(data) {
+  if (!data || !data.length) return;
+
+  const header = Object.keys(data[0]);
+  const rows = data.map(row => header.map(field => `"${(row[field] || "").toString().replace(/"/g, '""')}"`));
+  const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+
+  downloadFile(csvContent, "books.csv", "text/csv");
+}
+
+function exportToJSON(data) {
+  const jsonContent = JSON.stringify(data, null, 2);
+  downloadFile(jsonContent, "books.json", "application/json");
+}
+
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
