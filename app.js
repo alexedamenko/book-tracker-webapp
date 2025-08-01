@@ -157,3 +157,19 @@ function downloadFile(content, filename, type) {
   a.click();
   URL.revokeObjectURL(url);
 }
+export async function uploadExportFile(filename, content, contentType = "text/csv") {
+  const { data, error } = await supabase.storage
+    .from("exports")
+    .upload(filename, content, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType
+    });
+
+  if (error) {
+    console.error("Ошибка при загрузке файла:", error);
+    return null;
+  }
+
+  return supabase.storage.from("exports").getPublicUrl(filename).data.publicUrl;
+}
