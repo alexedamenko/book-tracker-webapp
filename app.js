@@ -102,11 +102,13 @@ window.showAddForm = function() {
       <input type="text" id="title" placeholder="Название книги" required />
       <input type="text" id="author" placeholder="Автор" required />
       <input type="url" id="cover_url" placeholder="Ссылка на обложку (необязательно)" />
+
       <select id="status">
         <option value="want_to_read">Хочу прочитать</option>
         <option value="reading">Читаю</option>
         <option value="read">Прочитал</option>
       </select>
+
       <select id="rating">
         <option value="">Без оценки</option>
         <option value="1">⭐ 1</option>
@@ -115,9 +117,16 @@ window.showAddForm = function() {
         <option value="4">⭐ 4</option>
         <option value="5">⭐ 5</option>
       </select>
-      <button type="submit">Сохранить</button>
+
+      <input type="date" id="started_at" placeholder="Дата начала (необязательно)" />
+      <input type="date" id="finished_at" placeholder="Дата окончания (необязательно)" />
+
+      <textarea id="comment" placeholder="Комментарий (необязательно)" rows="2"></textarea>
+
+      <button type="submit" class="save-btn">💾 Сохранить</button>
     </form>
-    <button id="backBtn">← Назад</button>
+
+    <button id="backBtn" class="back-btn" onclick="render()">← Назад</button>
   `;
 };
 
