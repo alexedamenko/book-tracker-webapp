@@ -105,6 +105,8 @@ window.submitAddForm = async function(e) {
 };
 
 renderMainScreen();
+
+
 // Экспорт данных
 document.getElementById("exportBtn").addEventListener("click", () => {
   const menu = document.getElementById("formatMenu");
@@ -119,7 +121,7 @@ document.querySelectorAll(".format-option").forEach(option => {
     const { data, error } = await supabase
       .from("books")
       .select("*")
-      .eq("user_id", window.Telegram.WebApp.initDataUnsafe.user?.id);
+      .eq("user_id", userId);
 
     if (error) {
       alert("Ошибка при получении данных");
