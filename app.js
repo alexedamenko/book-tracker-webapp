@@ -1,5 +1,5 @@
 // 📁 app.js — Основная логика WebApp
-import { supabase, getBooks, addBook } from './api.js';
+import { supabase, getBooks, addBook, uploadExportFile } from './api.js';
 
 Telegram.WebApp.ready();
 if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
@@ -32,10 +32,40 @@ async function renderMainScreen() {
     </div>
 
     <div class="footer-buttons">
+      <button id="exportBtn">⬇️ Экспорт</button>
+      <div id="formatMenu" class="hidden">
+        <div class="format-option" data-format="csv">CSV</div>
+        <div class="format-option" data-format="json">JSON</div>
+      </div>
       <button>📊 Статистика</button>
       <button>🔍 Поиск / рекомендации</button>
     </div>
   `;
+
+  // После рендера привязываем обработчики
+  document.getElementById("exportBtn").addEventListener("click", () => {
+    document.getElementById("formatMenu").classList.toggle("hidden");
+  });
+
+  document.querySelectorAll(".format-option").forEach(option => {
+    option.addEventListener("click", async () => {
+      const format = option.getAttribute("data-format");
+      document.getElementById("formatMenu").classList.add("hidden");
+
+      const { data, error } = await supabase
+        .from("user_books")
+        .select("*")
+        .eq("user_id", userId);
+
+      if (error) {
+        alert("Ошибка при получении данных");
+        return;
+      }
+
+      if (format === "csv") exportToCSV(data);
+      if (format === "json") exportToJSON(data);
+    });
+  });
 }
 
 window.switchTab = function(tab) {
@@ -92,7 +122,7 @@ window.submitAddForm = async function(e) {
     user_id: userId,
     title: document.getElementById("title").value,
     author: document.getElementById("author").value,
-    cover_url: document.getElementById("cover_url").value || "https://via.placeholder.com/56x80",
+    cover_url: document.getElementById("cover_url").value,
     status: document.getElementById("status").value,
     rating: ratingValue ? Number(ratingValue) : null,
     comment: "",
@@ -103,50 +133,6 @@ window.submitAddForm = async function(e) {
   currentTab = book.status;
   renderMainScreen();
 };
-
-renderMainScreen();
-
-
-// Экспорт данных
-import { uploadExportFile } from './api.js';
-
-async function uploadAndShare(content, filename, type) {
-  const blob = new Blob([content], { type });
-  const url = await uploadExportFile(filename, blob, type);
-
-  if (url) {
-    alert("✅ Файл готов к скачиванию");
-    window.open(url, "_blank");
-  } else {
-    alert("❌ Ошибка при экспорте файла");
-  }
-}
-
-
-document.getElementById("exportBtn").addEventListener("click", () => {
-  const menu = document.getElementById("formatMenu");
-  menu.classList.toggle("hidden");
-});
-
-document.querySelectorAll(".format-option").forEach(option => {
-  option.addEventListener("click", async () => {
-    const format = option.getAttribute("data-format");
-    document.getElementById("formatMenu").classList.add("hidden");
-
-    const { data, error } = await supabase
-  .from("user_books")
-  .select("*")
-  .eq("user_id", userId);
-
-    if (error) {
-      alert("Ошибка при получении данных");
-      return;
-    }
-
-    if (format === "csv") exportToCSV(data);
-    if (format === "json") exportToJSON(data);
-  });
-});
 
 function exportToCSV(data) {
   if (!data || !data.length) return;
@@ -165,28 +151,17 @@ function exportToJSON(data) {
   uploadAndShare(jsonContent, `books-${userId}.json`, "application/json");
 }
 
-function downloadFile(content, filename, type) {
+async function uploadAndShare(content, filename, type) {
   const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-export async function uploadExportFile(filename, content, contentType = "text/csv") {
-  const { data, error } = await supabase.storage
-    .from("exports")
-    .upload(filename, content, {
-      cacheControl: '3600',
-      upsert: true,
-      contentType
-    });
+  const url = await uploadExportFile(filename, blob, type);
 
-  if (error) {
-    console.error("Ошибка при загрузке файла:", error);
-    return null;
+  if (url) {
+    alert("✅ Файл готов к скачиванию");
+    window.open(url, "_blank");
+  } else {
+    alert("❌ Ошибка при экспорте файла");
   }
-
-  return supabase.storage.from("exports").getPublicUrl(filename).data.publicUrl;
 }
+
+renderMainScreen();
+
