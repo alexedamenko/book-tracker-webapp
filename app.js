@@ -11,7 +11,7 @@ const userId = Telegram.WebApp.initDataUnsafe.user.id.toString();
 let books = [];
 let currentTab = "read";
 
-async function renderMainScreen() {
+window.showAddForm = renderMainScreen() {
   books = await getBooks(userId);
   const container = document.getElementById("app");
   const filtered = books.filter(b => b.status === currentTab);
