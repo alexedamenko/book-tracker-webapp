@@ -143,7 +143,7 @@ function exportToCSV(data) {
   );
   const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
 
-  uploadAndShare(csvContent, `books-${userId}.csv`, "text/csv");
+  uploadAndShare(csvContent, `books-${userId}.csv`, "text/csv;charset=utf-8");
 }
 
 function exportToJSON(data) {
