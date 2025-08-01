@@ -19,3 +19,19 @@ export async function addBook(book) {
   const { error } = await supabase.from('user_books').insert([book]);
   if (error) console.error(error);
 }
+export async function uploadExportFile(filename, content, contentType = "text/csv") {
+  const { data, error } = await supabase.storage
+    .from("exports")
+    .upload(filename, content, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType
+    });
+
+  if (error) {
+    console.error("Ошибка при загрузке файла:", error);
+    return null;
+  }
+
+  return supabase.storage.from("exports").getPublicUrl(filename).data.publicUrl;
+}
