@@ -165,8 +165,11 @@ window.editBook = function(id) {
       <input type="date" id="finished_at" value="${book.finished_at || ""}" />
       <button type="submit">💾 Сохранить</button>
     </form>
-    <button onclick="renderMainScreen()">← Назад</button>
+    <button id="backBtn">← Назад</button>
   `;
+  document.getElementById("backBtn").addEventListener("click", () => {
+  renderMainScreen();
+});
 };
 window.submitEditForm = async function(e, id) {
   e.preventDefault();
