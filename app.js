@@ -141,7 +141,7 @@ function exportToCSV(data) {
   const rows = data.map(row =>
     header.map(field => `"${(row[field] || "").toString().replace(/"/g, '""')}"`)
   );
-  const csvContent = [header.join(","), ...rows.map(r => r.join(","))].join("\n");
+  const csvContent = "\uFEFF" + [header.join(","), ...rows.map(r => r.join(","))].join("\n");
 
   uploadAndShare(csvContent, `books-${userId}.csv`, "text/csv;charset=utf-8");
 }
