@@ -126,7 +126,7 @@ window.showAddForm = function() {
       <button type="submit" class="save-btn">💾 Сохранить</button>
     </form>
 
-    <button id="backBtn" class="back-btn" onclick="render()">← Назад</button>
+     <button class="back-btn" onclick="renderMainScreen()">← Назад</button>
   `;
 };
 
