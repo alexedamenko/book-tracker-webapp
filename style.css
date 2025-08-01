@@ -121,3 +121,29 @@ button {
 .hidden {
   display: none;
 }
+.button-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.edit-btn {
+  flex: 1;
+  background-color: #1e90ff;
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.delete-btn {
+  flex: 1;
+  background-color: #ff4d4f;
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 14px;
+}
