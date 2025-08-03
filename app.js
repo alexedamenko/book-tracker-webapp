@@ -76,7 +76,7 @@ window.switchTab = function(tab) {
 function renderBookCard(book) {
   return `
     <div class="book-card">
-      <img src="${book.cover_url}" alt="${book.title}" onclick="zoomImage('${book.cover_url}')" style="cursor: zoom-in;" />
+      <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
       <div class="info">
         <b>${book.title}</b><br/>
         <i>${book.author}</i><br/>
@@ -302,3 +302,14 @@ window.zoomImage = function (url) {
 window.closeZoom = function () {
   document.getElementById("zoom-overlay").classList.add("hidden");
 };
+window.showZoom = function (url) {
+  const overlay = document.getElementById("zoom-overlay");
+  const img = document.getElementById("zoom-image");
+  img.src = url;
+  overlay.classList.remove("hidden");
+};
+
+window.closeZoom = function () {
+  document.getElementById("zoom-overlay").classList.add("hidden");
+};
+
