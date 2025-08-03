@@ -83,6 +83,7 @@ function renderBookCard(book) {
         ${book.rating ? `⭐ ${book.rating}/5` : ""}<br/>
         ${book.started_at ? `📖 Начал: ${book.started_at}<br/>` : ""}
         ${book.finished_at ? `🏁 Закончил: ${book.finished_at}<br/>` : ""}
+        ${book.comment ? `<div class="book-comment">💬 ${book.comment}</div>` : ""}
         <div class="book-actions">
          <div class="button-row">
   <button class="edit-btn" onclick="editBook('${book.id}')">✏️ Редактировать</button>
@@ -141,7 +142,7 @@ window.submitAddForm = async function(e) {
     cover_url: document.getElementById("cover_url").value,
     status: document.getElementById("status").value,
     rating: ratingValue ? Number(ratingValue) : null,
-    comment: "",
+    comment: document.getElementById("comment").value.trim(),
     added_at: new Date().toISOString().split("T")[0],
     finished_at: document.getElementById("status").value === 'read' ? new Date().toISOString().split("T")[0] : null
   };
