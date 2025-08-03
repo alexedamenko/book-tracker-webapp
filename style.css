@@ -259,3 +259,9 @@ button {
   display: flex;
   gap: 12px;
 }
+/* Смещаем всплывающие окна внутрь, если они выходят за край */
+.toastui-editor-popup {
+  left: max(12px, var(--popup-left, 12px)) !important;
+  transform: translateX(0) !important;
+  z-index: 9999 !important; /* Поверх Telegram UI */
+}
