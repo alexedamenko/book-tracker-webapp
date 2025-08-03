@@ -340,20 +340,42 @@ window.openComment = function(bookId, readonly = true) {
       initialValue: book.comment || "Комментарий пока не добавлен."
     });
   } else {
-    window.toastEditor = new toastui.Editor({
-      el: document.querySelector('#toastEditor'),
-      height: '400px',
-      language: 'ru',
-      initialEditType: 'wysiwyg',
-      previewStyle: 'vertical',
-      initialValue: book.comment || "",
-      hooks: {
-        addImageBlobHook: async (blob, callback) => {
-          const url = await uploadImageToSupabase(blob);
-          callback(url, 'загруженное изображение');
-        }
-      }
-    });
+window.toastEditor = new toastui.Editor({
+  el: document.querySelector('#toastEditor'),
+  height: '400px',
+  language: 'ru',
+  initialEditType: 'wysiwyg',
+  previewStyle: 'vertical',
+  initialValue: book.comment || "",
+  toolbarItems: [
+    ['heading', 'bold', 'italic', 'strike'],
+    ['hr', 'quote'],
+    ['ul', 'ol', 'task'],
+    ['table', 'link', 'image'],
+    // 👉 Добавляем кнопки Undo/Redo
+    [{
+      name: 'undo',
+      tooltip: 'Отменить',
+      className: 'toastui-editor-toolbar-icons undo',
+      command: 'undo',
+      text: '↩️'
+    },
+    {
+      name: 'redo',
+      tooltip: 'Повторить',
+      className: 'toastui-editor-toolbar-icons redo',
+      command: 'redo',
+      text: '↪️'
+    }]
+  ],
+  hooks: {
+    addImageBlobHook: async (blob, callback) => {
+      const url = await uploadImageToSupabase(blob);
+      callback(url, 'загруженное изображение');
+    }
+  }
+});
+
 
     // 💡 Корректировка позиции всплывающих окон
     const fixPopupPosition = () => {
