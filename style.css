@@ -41,20 +41,65 @@ h2 {
 .book-card {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 0 4px rgba(0,0,0,0.05);
 }
 
 .book-card img {
   width: 80px;
-  height: auto;
-  border-radius: 6px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 .book-card .info {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  flex: 1;
+}
+
+.book-card .main-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.book-card .stars {
+  color: gold;
+  font-size: 14px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.comment-snippet {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #444;
+  background: #f8f8f8;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.more-link {
+  color: #0077cc;
+  font-weight: bold;
+  margin-left: 4px;
 }
 
 button {
