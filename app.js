@@ -315,44 +315,51 @@ window.closeZoom = function () {
   document.getElementById("zoom-overlay").classList.add("hidden");
 };
 
-window.openComment = function(bookId) {
+window.openComment = function(bookId, readonly = true) {
   const book = books.find(b => b.id === bookId);
   const container = document.getElementById("app");
 
   container.innerHTML = `
     <h2>💬 Комментарий к книге</h2>
     <b>${book.title}</b> <i>(${book.author})</i><br/><br/>
-
-    <textarea id="markdownEditor">${book.comment || ""}</textarea>
+    <div id="toastEditor"></div>
 
     <div class="comment-actions">
-      <button onclick="saveComment('${book.id}')">💾 Сохранить</button>
+      ${readonly
+        ? `<button onclick="openComment('${bookId}', false)">✏️ Редактировать</button>`
+        : `<button onclick="saveComment('${book.id}')">💾 Сохранить</button>`
+      }
       <button onclick="renderMainScreen()">← Назад</button>
     </div>
-
-    <h3>📄 Предпросмотр</h3>
-    <div id="preview" class="preview-box"></div>
   `;
 
-  window.simplemde = new SimpleMDE({
-    element: document.getElementById("markdownEditor"),
-    spellChecker: false,
-    status: false,
-    autofocus: true,
-    placeholder: "Введите комментарий в формате Markdown",
-  });
-
-  const updatePreview = () => {
-    document.getElementById("preview").innerHTML = simplemde.options.previewRender(simplemde.value());
-  };
-  simplemde.codemirror.on("change", updatePreview);
-  updatePreview();
+  if (readonly) {
+    window.toastViewer = toastui.Editor.factory({
+      el: document.querySelector('#toastEditor'),
+      viewer: true,
+      initialValue: book.comment || "Нет комментария"
+    });
+  } else {
+    window.toastEditor = new toastui.Editor({
+      el: document.querySelector('#toastEditor'),
+      height: '400px',
+      initialEditType: 'wysiwyg',
+      previewStyle: 'vertical',
+      initialValue: book.comment || "",
+      hooks: {
+        addImageBlobHook: async (blob, callback) => {
+          const url = await uploadImageToSupabase(blob); // 👇 ниже опишу
+          callback(url, 'изображение');
+        }
+      }
+    });
+  }
 };
 
 
-window.saveComment = async function(bookId) {
-  const newComment = window.simplemde.value().trim();
 
+window.saveComment = async function(bookId) {
+  const newComment = toastEditor.getMarkdown(); // можно .getHTML() если хочешь сохранять HTML
   const { error } = await supabase
     .from("user_books")
     .update({ comment: newComment })
@@ -360,10 +367,26 @@ window.saveComment = async function(bookId) {
     .eq("user_id", userId);
 
   if (error) {
-    alert("Ошибка при сохранении комментария");
+    alert("Ошибка при сохранении");
     return;
   }
 
   renderMainScreen();
 };
+async function uploadImageToSupabase(blob) {
+  const fileName = `${crypto.randomUUID()}.${blob.type.split("/")[1]}`;
+  const { error } = await supabase.storage
+    .from("comments")
+    .upload(fileName, blob, { upsert: false });
 
+  if (error) {
+    alert("Ошибка загрузки изображения");
+    return "";
+  }
+
+  const { data } = supabase.storage
+    .from("comments")
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
+}
