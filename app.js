@@ -74,28 +74,32 @@ window.switchTab = function(tab) {
 };
 
 function renderBookCard(book) {
+  const commentSnippet = book.comment
+    ? `<div class="comment-snippet" onclick="openComment('${book.id}')">
+         ${truncateComment(book.comment)}
+         <span class="more-link">...ещё</span>
+       </div>`
+    : "";
+
   return `
     <div class="book-card">
       <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
       
       <div class="info">
-        <div class="card-header">
-          <div>
-            <b>${book.title}</b><br/>
-            <i>${book.author}</i>
-          </div>
-          <div class="card-actions">
-            <button class="icon-btn" onclick="editBook('${book.id}')">✏️</button>
-            <button class="icon-btn" onclick="deleteBook('${book.id}')">🗑️</button>
-          </div>
+        <div class="main-block">
+          <b class="book-title">${book.title}</b>
+          <i class="book-author">${book.author}</i>
+          ${book.rating ? `<div class="stars">${renderStars(book.rating)}</div>` : ""}
+          ${book.started_at ? `<div>📖 ${book.started_at}</div>` : ""}
+          ${book.finished_at ? `<div>🏁 ${book.finished_at}</div>` : ""}
         </div>
 
-        ${book.rating ? `<div class="stars">${renderStars(book.rating)}</div>` : ""}
-        
-        ${book.started_at ? `📖 Начал: ${book.started_at}<br/>` : ""}
-        ${book.finished_at ? `🏁 Закончил: ${book.finished_at}<br/>` : ""}
-        
-        ${book.comment ? `<div class="comment-preview"><button onclick="openComment('${book.id}')">💬 Комментарий</button></div>` : ""}
+        <div class="card-actions">
+          <button class="icon-btn" onclick="editBook('${book.id}')">✏️</button>
+          <button class="icon-btn" onclick="deleteBook('${book.id}')">🗑️</button>
+        </div>
+
+        ${commentSnippet}
       </div>
     </div>
   `;
@@ -445,4 +449,8 @@ async function uploadImageToSupabase(blob) {
     .getPublicUrl(fileName);
 
   return data.publicUrl;
+}
+function truncateComment(comment, maxLength = 100) {
+  const clean = comment.replace(/<[^>]+>/g, "").replace(/\n/g, " ");
+  return clean.length > maxLength ? clean.slice(0, maxLength) : clean;
 }
