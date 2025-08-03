@@ -74,14 +74,7 @@ window.switchTab = function(tab) {
 };
 
 function renderBookCard(book) {
-  const commentSnippet = book.comment
-    ? `<div class="comment-snippet" onclick="openComment('${book.id}')">
-         ${truncateComment(book.comment)}
-         <span class="more-link">...ещё</span>
-       </div>`
-    : "";
-
-  return `
+   return `
     <div class="book-card">
       <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
       
@@ -92,6 +85,8 @@ function renderBookCard(book) {
           ${book.rating ? `<div class="stars">${renderStars(book.rating)}</div>` : ""}
           ${book.started_at ? `<div>📖 ${book.started_at}</div>` : ""}
           ${book.finished_at ? `<div>🏁 ${book.finished_at}</div>` : ""}
+          ${book.comment ? `<div class="comment-preview"><button onclick="openComment('${book.id}')">💬 Заметки/Выводы</button></div>` : ""}
+
         </div>
 
         <div class="card-actions">
@@ -99,8 +94,7 @@ function renderBookCard(book) {
           <button class="icon-btn" onclick="deleteBook('${book.id}')">🗑️</button>
         </div>
 
-        ${commentSnippet}
-      </div>
+         </div>
     </div>
   `;
 }
@@ -137,8 +131,6 @@ window.showAddForm = function() {
 
       <input type="date" id="started_at" placeholder="Дата начала (необязательно)" />
       <input type="date" id="finished_at" placeholder="Дата окончания (необязательно)" />
-
-      <textarea id="comment" placeholder="Комментарий (необязательно)" rows="2"></textarea>
 
       <button type="submit" class="save-btn">💾 Сохранить</button>
     </form>
@@ -180,7 +172,6 @@ window.editBook = function(id) {
       <input type="date" id="added_at" value="${book.added_at || ""}" />
       <input type="date" id="started_at" value="${book.started_at || ""}" />
       <input type="date" id="finished_at" value="${book.finished_at || ""}" />
-      <textarea id="comment" placeholder="Комментарий">${book.comment || ""}</textarea>
       <select id="status">
         <option value="want_to_read" ${book.status === 'want_to_read' ? 'selected' : ''}>Хочу прочитать</option>
         <option value="reading" ${book.status === 'reading' ? 'selected' : ''}>Читаю</option>
@@ -449,8 +440,4 @@ async function uploadImageToSupabase(blob) {
     .getPublicUrl(fileName);
 
   return data.publicUrl;
-}
-function truncateComment(comment, maxLength = 100) {
-  const clean = comment.replace(/<[^>]+>/g, "").replace(/\n/g, " ");
-  return clean.length > maxLength ? clean.slice(0, maxLength) : clean;
 }
