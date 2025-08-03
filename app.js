@@ -355,20 +355,30 @@ window.openComment = function(bookId, readonly = true) {
       }
     });
 
-    // 👇 Наблюдаем появление всплывающих окон и корректируем позицию
-    const observer = new MutationObserver(() => {
-      const popup = document.querySelector('.toastui-editor-popup');
-      if (popup) {
+    // 💡 Корректировка позиции всплывающих окон
+    const fixPopupPosition = () => {
+      const popups = document.querySelectorAll('.toastui-editor-popup');
+      popups.forEach(popup => {
         const rect = popup.getBoundingClientRect();
         if (rect.left < 0) {
           popup.style.left = '12px';
         }
-      }
-    });
 
+        const rightOverflow = rect.right - window.innerWidth;
+        if (rightOverflow > 0) {
+          popup.style.left = (rect.left - rightOverflow - 12) + 'px';
+        }
+      });
+    };
+
+    const observer = new MutationObserver(() => fixPopupPosition());
     observer.observe(document.body, { childList: true, subtree: true });
+
+    // также вызываем через timeout (на случай пропуска мутации)
+    setTimeout(fixPopupPosition, 200);
   }
 };
+
 
 
 window.saveComment = async function(bookId) {
