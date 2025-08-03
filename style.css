@@ -86,22 +86,6 @@ h2 {
   cursor: pointer;
 }
 
-.comment-snippet {
-  margin-top: 8px;
-  font-size: 14px;
-  color: #444;
-  background: #f8f8f8;
-  padding: 6px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.more-link {
-  color: #0077cc;
-  font-weight: bold;
-  margin-left: 4px;
-}
-
 button {
   padding: 10px 16px;
   background-color: #007aff;
@@ -170,59 +154,9 @@ button {
   margin-top: 10px;
 }
 
-.edit-btn,
-.delete-btn {
-  flex: 1;
-  padding: 8px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #fff;
-  transition: background-color 0.2s, transform 0.05s;
-}
-
-/* 🟦 Кнопка "Редактировать" */
-.edit-btn {
-  background-color: #1e90ff;
-}
-.edit-btn:hover {
-  background-color: #0077e0;
-}
-.edit-btn:active {
-  background-color: #005bb5;
-  transform: scale(0.98);
-}
-
-/* 🔴 Кнопка "Удалить" */
-.delete-btn {
-  background-color: #ff4d4f;
-}
-.delete-btn:hover {
-  background-color: #d9363e;
-}
-.delete-btn:active {
-  background-color: #b92e34;
-  transform: scale(0.98);
-}
-
 /* 🌙 Поддержка тёмной темы Telegram WebApp */
 @media (prefers-color-scheme: dark) {
-  .edit-btn {
-    background-color: #3a9eff;
-  }
-  .edit-btn:hover {
-    background-color: #1f85e0;
-  }
-
-  .delete-btn {
-    background-color: #ff6666;
-  }
-  .delete-btn:hover {
-    background-color: #e24d4d;
-  }
-}
-.save-btn, .back-btn {
+  .save-btn, .back-btn {
   width: 100%;
   padding: 10px;
   margin-top: 12px;
