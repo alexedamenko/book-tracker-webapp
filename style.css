@@ -76,13 +76,13 @@ h2 {
 .card-actions {
   display: flex;
   gap: 8px;
-  margin-top: 6px;
-}
+  }
 
 .icon-btn {
   background: none;
   border: none;
   font-size: 16px;
+  padding: 2px;
   cursor: pointer;
 }
 
@@ -225,12 +225,7 @@ button {
   border-radius: 8px;
   white-space: pre-wrap;
 }
-.preview-box {
-  margin-top: 20px;
-  padding: 10px;
-  border-left: 4px solid #ddd;
-  background: #fafafa;
-}
+
 .comment-actions {
   margin-top: 16px;
   display: flex;
