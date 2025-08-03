@@ -315,24 +315,40 @@ window.closeZoom = function () {
   document.getElementById("zoom-overlay").classList.add("hidden");
 };
 
-window.openComment = function(bookId) {
+wwindow.openComment = function(bookId) {
   const book = books.find(b => b.id === bookId);
   const container = document.getElementById("app");
-  
+
   container.innerHTML = `
     <h2>💬 Комментарий к книге</h2>
     <b>${book.title}</b> <i>(${book.author})</i><br/><br/>
-    
-    <div id="editableComment" contenteditable="true" class="editable-box">${book.comment || ""}</div>
 
+    <textarea id="markdownEditor">${book.comment || ""}</textarea>
+    <div id="preview" class="preview-box"></div>
+
+simplemde.codemirror.on("change", () => {
+  document.getElementById("preview").innerHTML = simplemde.options.previewRender(simplemde.value());
+});
+document.getElementById("preview").innerHTML = simplemde.options.previewRender(simplemde.value());
+
+    
     <div class="comment-actions">
       <button onclick="saveComment('${book.id}')">💾 Сохранить</button>
       <button onclick="renderMainScreen()">← Назад</button>
     </div>
-    <p><small>Поддержка: Enter — абзац, Ctrl+B — жирный, вставка ссылок вручную в формате <code>[текст](url)</code></small></p>
   `;
-};window.saveComment = async function(bookId) {
-  const newComment = document.getElementById("editableComment").innerHTML.trim();
+
+  window.simplemde = new SimpleMDE({
+    element: document.getElementById("markdownEditor"),
+    spellChecker: false,
+    status: false,
+    autofocus: true,
+    placeholder: "Введите комментарий в формате Markdown",
+  });
+};
+
+window.saveComment = async function(bookId) {
+  const newComment = window.simplemde.value().trim();
 
   const { error } = await supabase
     .from("user_books")
@@ -347,3 +363,4 @@ window.openComment = function(bookId) {
 
   renderMainScreen();
 };
+
