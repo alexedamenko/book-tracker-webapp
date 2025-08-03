@@ -254,3 +254,8 @@ button {
   border-left: 4px solid #ddd;
   background: #fafafa;
 }
+.comment-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+}
