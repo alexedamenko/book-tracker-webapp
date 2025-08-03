@@ -360,14 +360,11 @@ window.openComment = function(bookId, readonly = true) {
       const popups = document.querySelectorAll('.toastui-editor-popup');
       popups.forEach(popup => {
         const rect = popup.getBoundingClientRect();
-        if (rect.left < 0) {
-          popup.style.left = '12px';
-        }
+if (rect.left < 0 || rect.right > window.innerWidth) {
+  const shift = Math.min(Math.abs(rect.left), rect.right - window.innerWidth);
+  popup.style.transform = `translateX(${-shift - 12}px)`;
+}
 
-        const rightOverflow = rect.right - window.innerWidth;
-        if (rightOverflow > 0) {
-          popup.style.left = (rect.left - rightOverflow - 12) + 'px';
-        }
       });
     };
 
@@ -375,7 +372,8 @@ window.openComment = function(bookId, readonly = true) {
     observer.observe(document.body, { childList: true, subtree: true });
 
     // также вызываем через timeout (на случай пропуска мутации)
-    setTimeout(fixPopupPosition, 200);
+  setTimeout(fixPopupPosition, 300);
+  setTimeout(fixPopupPosition, 800); // резервный вызов
   }
 };
 
