@@ -334,32 +334,46 @@ window.openComment = function(bookId, readonly = true) {
   `;
 
   if (readonly) {
-    window.toastViewer = toastui.Editor.factory({
+    toastui.Editor.factory({
       el: document.querySelector('#toastEditor'),
       viewer: true,
-      initialValue: book.comment || "Нет комментария"
+      initialValue: book.comment || "Комментарий пока не добавлен."
     });
   } else {
     window.toastEditor = new toastui.Editor({
       el: document.querySelector('#toastEditor'),
       height: '400px',
+      language: 'ru',
       initialEditType: 'wysiwyg',
       previewStyle: 'vertical',
       initialValue: book.comment || "",
       hooks: {
         addImageBlobHook: async (blob, callback) => {
-          const url = await uploadImageToSupabase(blob); // 👇 ниже опишу
-          callback(url, 'изображение');
+          const url = await uploadImageToSupabase(blob);
+          callback(url, 'загруженное изображение');
         }
       }
     });
+
+    // 👇 Наблюдаем появление всплывающих окон и корректируем позицию
+    const observer = new MutationObserver(() => {
+      const popup = document.querySelector('.toastui-editor-popup');
+      if (popup) {
+        const rect = popup.getBoundingClientRect();
+        if (rect.left < 0) {
+          popup.style.left = '12px';
+        }
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 };
 
 
-
 window.saveComment = async function(bookId) {
-  const newComment = toastEditor.getMarkdown(); // можно .getHTML() если хочешь сохранять HTML
+  const newComment = toastEditor.getMarkdown(); // Или .getHTML() — как тебе удобнее
+
   const { error } = await supabase
     .from("user_books")
     .update({ comment: newComment })
@@ -373,6 +387,7 @@ window.saveComment = async function(bookId) {
 
   renderMainScreen();
 };
+
 async function uploadImageToSupabase(blob) {
   const fileName = `${crypto.randomUUID()}.${blob.type.split("/")[1]}`;
   const { error } = await supabase.storage
