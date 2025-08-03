@@ -77,23 +77,34 @@ function renderBookCard(book) {
   return `
     <div class="book-card">
       <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
+      
       <div class="info">
-        <b>${book.title}</b><br/>
-        <i>${book.author}</i><br/>
-        ${book.rating ? `⭐ ${book.rating}/5` : ""}<br/>
+        <div class="card-header">
+          <div>
+            <b>${book.title}</b><br/>
+            <i>${book.author}</i>
+          </div>
+          <div class="card-actions">
+            <button class="icon-btn" onclick="editBook('${book.id}')">✏️</button>
+            <button class="icon-btn" onclick="deleteBook('${book.id}')">🗑️</button>
+          </div>
+        </div>
+
+        ${book.rating ? `<div class="stars">${renderStars(book.rating)}</div>` : ""}
+        
         ${book.started_at ? `📖 Начал: ${book.started_at}<br/>` : ""}
         ${book.finished_at ? `🏁 Закончил: ${book.finished_at}<br/>` : ""}
+        
         ${book.comment ? `<div class="comment-preview"><button onclick="openComment('${book.id}')">💬 Комментарий</button></div>` : ""}
-
-        <div class="book-actions">
-         <div class="button-row">
-  <button class="edit-btn" onclick="editBook('${book.id}')">✏️ Редактировать</button>
-  <button class="delete-btn" onclick="deleteBook('${book.id}')">🗑️ Удалить</button>
-</div>
-        </div>
       </div>
     </div>
   `;
+}
+
+function renderStars(rating = 0) {
+  const fullStar = '★';
+  const emptyStar = '☆';
+  return [...Array(5)].map((_, i) => i < rating ? fullStar : emptyStar).join('');
 }
 
 window.showAddForm = function() {
