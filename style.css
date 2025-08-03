@@ -240,3 +240,12 @@ button {
 #zoom-overlay:not(.hidden) img {
   transform: scale(1);
 }
+.editable-box {
+  border: 1px solid #ccc;
+  min-height: 150px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 8px;
+  white-space: pre-wrap;
+}
+
