@@ -49,14 +49,16 @@ h2 {
 }
 
 .book-card img {
-  width: 56px;
-  height: 80px;
-  border-radius: 4px;
-  object-fit: cover;
+  width: 80px;
+  height: auto;
+  border-radius: 6px;
 }
 
 .book-card .info {
-  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
 }
 
 button {
