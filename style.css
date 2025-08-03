@@ -265,3 +265,9 @@ toastui-editor-popup {
   box-sizing: border-box;
   left: max(12px, min(50%, calc(100vw - 320px))) !important;
 }
+.toastui-editor-toolbar-icons.undo,
+.toastui-editor-toolbar-icons.redo {
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 6px;
+}
