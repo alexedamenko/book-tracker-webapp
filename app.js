@@ -315,7 +315,7 @@ window.closeZoom = function () {
   document.getElementById("zoom-overlay").classList.add("hidden");
 };
 
-wwindow.openComment = function(bookId) {
+window.openComment = function(bookId) {
   const book = books.find(b => b.id === bookId);
   const container = document.getElementById("app");
 
@@ -324,19 +324,31 @@ wwindow.openComment = function(bookId) {
     <b>${book.title}</b> <i>(${book.author})</i><br/><br/>
 
     <textarea id="markdownEditor">${book.comment || ""}</textarea>
-    <div id="preview" class="preview-box"></div>
 
-simplemde.codemirror.on("change", () => {
-  document.getElementById("preview").innerHTML = simplemde.options.previewRender(simplemde.value());
-});
-document.getElementById("preview").innerHTML = simplemde.options.previewRender(simplemde.value());
-
-    
     <div class="comment-actions">
       <button onclick="saveComment('${book.id}')">💾 Сохранить</button>
       <button onclick="renderMainScreen()">← Назад</button>
     </div>
+
+    <h3>📄 Предпросмотр</h3>
+    <div id="preview" class="preview-box"></div>
   `;
+
+  window.simplemde = new SimpleMDE({
+    element: document.getElementById("markdownEditor"),
+    spellChecker: false,
+    status: false,
+    autofocus: true,
+    placeholder: "Введите комментарий в формате Markdown",
+  });
+
+  // 🔁 Обновляем предпросмотр при каждом изменении
+  const updatePreview = () => {
+    document.getElementById("preview").innerHTML = simplemde.options.previewRender(simplemde.value());
+  };
+  simplemde.codemirror.on("change", updatePreview);
+  updatePreview();
+};
 
   window.simplemde = new SimpleMDE({
     element: document.getElementById("markdownEditor"),
