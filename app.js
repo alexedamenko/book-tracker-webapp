@@ -79,6 +79,10 @@ function renderBookCard(book) {
       <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
       
       <div class="info">
+       <div class="card-actions-top">
+          <button class="icon-btn" onclick="editBook('${book.id}')">✏️</button>
+          <button class="icon-btn" onclick="deleteBook('${book.id}')">🗑️</button>
+        </div>
         <div class="main-block">
           <b class="book-title">${book.title}</b>
           <i class="book-author">${book.author}</i>
@@ -87,13 +91,7 @@ function renderBookCard(book) {
           ${book.finished_at ? `<div>🏁 ${book.finished_at}</div>` : ""}
           ${book.comment ? `<div class="comment-preview"><button onclick="openComment('${book.id}')">💬 Заметки/Выводы</button></div>` : ""}
 
-        </div>
-
-        <div class="card-actions">
-          <button class="icon-btn" onclick="editBook('${book.id}')">✏️</button>
-          <button class="icon-btn" onclick="deleteBook('${book.id}')">🗑️</button>
-        </div>
-
+              </div>
          </div>
     </div>
   `;
