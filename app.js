@@ -334,15 +334,7 @@ window.openComment = function(bookId) {
     <div id="preview" class="preview-box"></div>
   `;
 
-  window.simplemde = new SimpleMDE({
-    element: document.getElementById("markdownEditor"),
-    spellChecker: false,
-    status: false,
-    autofocus: true,
-    placeholder: "Введите комментарий в формате Markdown",
-  });
-
-  // 🔁 Обновляем предпросмотр при каждом изменении
+    // 🔁 Обновляем предпросмотр при каждом изменении
   const updatePreview = () => {
     document.getElementById("preview").innerHTML = simplemde.options.previewRender(simplemde.value());
   };
