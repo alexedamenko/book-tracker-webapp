@@ -260,8 +260,8 @@ button {
   gap: 12px;
 }
 /* Смещаем всплывающие окна внутрь, если они выходят за край */
-.toastui-editor-popup {
-  left: max(12px, var(--popup-left, 12px)) !important;
-  transform: translateX(0) !important;
-  z-index: 9999 !important; /* Поверх Telegram UI */
+toastui-editor-popup {
+  max-width: 95vw !important;
+  box-sizing: border-box;
+  left: max(12px, min(50%, calc(100vw - 320px))) !important;
 }
