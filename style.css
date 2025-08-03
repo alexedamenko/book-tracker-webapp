@@ -39,12 +39,14 @@ h2 {
 }
 
 .book-card {
+  position: relative;
   display: flex;
   gap: 12px;
   padding: 12px;
-  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 0 4px rgba(0,0,0,0.05);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-bottom: 16px;
 }
 
 .book-card img {
@@ -73,6 +75,14 @@ h2 {
   font-size: 14px;
 }
 
+.card-actions-top {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 1;
+}
 .card-actions {
   display: flex;
   gap: 8px;
@@ -82,8 +92,14 @@ h2 {
   background: none;
   border: none;
   font-size: 16px;
-  padding: 2px;
   cursor: pointer;
+  padding: 2px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.icon-btn:hover {
+  opacity: 1;
 }
 
 button {
