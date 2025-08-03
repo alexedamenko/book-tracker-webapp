@@ -342,15 +342,6 @@ window.openComment = function(bookId) {
   updatePreview();
 };
 
-  window.simplemde = new SimpleMDE({
-    element: document.getElementById("markdownEditor"),
-    spellChecker: false,
-    status: false,
-    autofocus: true,
-    placeholder: "Введите комментарий в формате Markdown",
-  });
-};
-
 window.saveComment = async function(bookId) {
   const newComment = window.simplemde.value().trim();
 
