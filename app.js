@@ -372,8 +372,7 @@ window.toastEditor = new toastui.Editor({
     ['hr', 'quote'],
     ['ul', 'ol', 'task'],
     ['table', 'link', 'image'],
-    
-    // 👉 Добавляем кнопки Undo/Redo
+        // 👉 Добавляем кнопки Undo/Redo
     [{
       name: 'undo',
       tooltip: 'Отменить',
