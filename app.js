@@ -129,6 +129,7 @@ window.showAddForm = function() {
 
       <input type="date" id="started_at" placeholder="Дата начала (необязательно)" />
       <input type="date" id="finished_at" placeholder="Дата окончания (необязательно)" />
+      <textarea id="comment" placeholder="Заметка (необязательно)" rows="3"></textarea>
 
       <button type="submit" class="save-btn">💾 Сохранить</button>
     </form>
@@ -179,6 +180,7 @@ window.editBook = function(id) {
         <option value="">Без оценки</option>
         ${[1,2,3,4,5].map(n => `<option value="${n}" ${book.rating === n ? 'selected' : ''}>⭐ ${n}</option>`).join("")}
       </select>
+      <textarea id="comment">${book.comment || ""}</textarea>
       <button type="submit">💾 Сохранить</button>
     </form>
     <button id="backBtn">← Назад</button>
