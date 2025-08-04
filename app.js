@@ -1,6 +1,8 @@
 // 📁 app.js — Основная логика WebApp
+// 🛠 Импорт основных функций API и подключения к Supabase
 import { supabase, getBooks, addBook, uploadExportFile } from './api.js';
 
+// ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
 Telegram.WebApp.ready();
 if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
   alert("❗ Пожалуйста, открой приложение через Telegram");
@@ -8,9 +10,11 @@ if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
 }
 const userId = Telegram.WebApp.initDataUnsafe.user.id.toString();
 
+// 📚 Хранилище текущего списка книг и активной вкладки
 let books = [];
 let currentTab = "read";
 
+// 🔁 Основная функция отрисовки экрана с книгами
 window.renderMainScreen = async function() {
   books = await getBooks(userId);
   const container = document.getElementById("app");
@@ -42,7 +46,7 @@ window.renderMainScreen = async function() {
     </div>
   `;
 
-  // После рендера привязываем обработчики
+  // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
     document.getElementById("formatMenu").classList.toggle("hidden");
   });
