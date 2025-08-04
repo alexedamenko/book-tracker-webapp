@@ -229,7 +229,7 @@ window.submitEditForm = async function(e, id) {
     cover_url: document.getElementById("cover_url").value.trim(),
     status: document.getElementById("status").value,
     rating: ratingValue ? Number(ratingValue) : null,
-    comment: document.getElementById("comment").value.trim(),
+    ccomment: "", // или null
     added_at: document.getElementById("added_at").value || null,
     started_at: document.getElementById("started_at").value || null,
     finished_at: document.getElementById("finished_at").value || null
