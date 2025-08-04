@@ -49,7 +49,7 @@ window.renderMainScreen = async function() {
 
   // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
-    document.getElementById("formatMenu").classList.toggle("hidden");
+  document.getElementById("formatMenu").classList.toggle("hidden");
   });
 
   document.querySelectorAll(".format-option").forEach(option => {
