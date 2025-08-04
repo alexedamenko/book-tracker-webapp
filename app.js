@@ -138,7 +138,9 @@ window.showAddForm = function() {
 
       <input type="date" id="started_at" placeholder="Дата начала (необязательно)" />
       <input type="date" id="finished_at" placeholder="Дата окончания (необязательно)" />
-
+      
+      <textarea id="comment" placeholder="Заметка (необязательно)" rows="3"></textarea>
+      
       <button type="submit" class="save-btn">💾 Сохранить</button>
     </form>
 
