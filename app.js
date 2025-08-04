@@ -1,6 +1,9 @@
 // 📁 app.js — Основная логика WebApp
+
+// 🛠 Импорт основных функций API и подключения к Supabase
 import { supabase, getBooks, addBook, uploadExportFile } from './api.js';
 
+// ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
 Telegram.WebApp.ready();
 if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
   alert("❗ Пожалуйста, открой приложение через Telegram");
@@ -8,9 +11,11 @@ if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
 }
 const userId = Telegram.WebApp.initDataUnsafe.user.id.toString();
 
+// 📚 Хранилище текущего списка книг и активной вкладки
 let books = [];
 let currentTab = "read";
 
+// 🔁 Основная функция отрисовки экрана с книгами
 window.renderMainScreen = async function() {
   books = await getBooks(userId);
   const container = document.getElementById("app");
@@ -42,7 +47,7 @@ window.renderMainScreen = async function() {
     </div>
   `;
 
-  // После рендера привязываем обработчики
+  // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
     document.getElementById("formatMenu").classList.toggle("hidden");
   });
@@ -68,11 +73,13 @@ window.renderMainScreen = async function() {
   });
 }
 
+// 🔁 Переключение вкладки (читаю, прочитал и т.д.)
 window.switchTab = function(tab) {
   currentTab = tab;
   renderMainScreen();
 };
 
+// 🧩 Отрисовка карточки книги (обложка, название, рейтинг, даты и заметка)
 function renderBookCard(book) {
    return `
     <div class="book-card">
@@ -97,12 +104,14 @@ function renderBookCard(book) {
   `;
 }
 
+// ⭐ Отображение рейтинга в виде звёздочек
 function renderStars(rating = 0) {
   const fullStar = '★';
   const emptyStar = '☆';
   return [...Array(5)].map((_, i) => i < rating ? fullStar : emptyStar).join('');
 }
 
+// ➕ Показ формы добавления книги
 window.showAddForm = function() {
   const container = document.getElementById("app");
   container.innerHTML = `
@@ -137,6 +146,7 @@ window.showAddForm = function() {
   `;
 };
 
+// ✅ Обработка добавления новой книги
 window.submitAddForm = async function(e) {
   e.preventDefault();
   const ratingValue = document.getElementById("rating").value;
@@ -157,6 +167,7 @@ window.submitAddForm = async function(e) {
   renderMainScreen();
 };
 
+// ✏️ Показ формы редактирования книги
 window.editBook = function(id) {
   const book = books.find(b => b.id === id);
   const container = document.getElementById("app");
@@ -247,6 +258,8 @@ window.submitEditForm = async function(e, id) {
   alert("✅ Сохранено");
   renderMainScreen(); // перерисовываем
 };
+
+// 🗑 Удаление книги
 window.deleteBook = async function(id) {
   const confirmDelete = confirm("Удалить эту книгу? Это действие нельзя отменить.");
   if (!confirmDelete) return;
@@ -262,7 +275,7 @@ window.deleteBook = async function(id) {
 };
 
 
-
+// 📤 Экспорт в CSV/JSON
 function exportToCSV(data) {
   if (!data || !data.length) return;
 
@@ -284,6 +297,7 @@ function exportToJSON(data) {
   uploadAndShare(jsonContent, `books-${userId}.json`, "application/json");
 }
 
+// ☁️ Загрузка и открытие файла экспорта
 async function uploadAndShare(content, filename, type) {
   const blob = new Blob([content], { type });
   const url = await uploadExportFile(filename, blob, type);
@@ -298,6 +312,7 @@ async function uploadAndShare(content, filename, type) {
 
 renderMainScreen();
 
+// 🔍 Zoom-отображение обложки книги
 window.zoomImage = function (url) {
   const overlay = document.getElementById("zoom-overlay");
   const img = document.getElementById("zoom-image");
@@ -319,6 +334,7 @@ window.closeZoom = function () {
   document.getElementById("zoom-overlay").classList.add("hidden");
 };
 
+// 💬 Открытие/редактирование комментария к книге через Toast UI Editor
 window.openComment = function(bookId, readonly = true) {
   const book = books.find(b => b.id === bookId);
   const container = document.getElementById("app");
@@ -422,6 +438,7 @@ window.saveComment = async function(bookId) {
   renderMainScreen();
 };
 
+// 📸 Загрузка изображения из комментария в Supabase Storage
 async function uploadImageToSupabase(blob) {
   const fileName = `${crypto.randomUUID()}.${blob.type.split("/")[1]}`;
   const { error } = await supabase.storage
