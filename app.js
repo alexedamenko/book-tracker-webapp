@@ -158,7 +158,7 @@ window.submitAddForm = async function(e) {
   renderMainScreen();
 };
 
-indow.editBook = function(id) {
+window.editBook = function(id) {
   const book = books.find(b => b.id === id);
   const container = document.getElementById("app");
 
