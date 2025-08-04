@@ -1,3 +1,4 @@
+/* === Основные стили страницы === */
 body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   padding: 0;
@@ -13,6 +14,7 @@ h2 {
   margin-bottom: 12px;
 }
 
+/* === Вкладки (навигация по статусу книги) === */
 .nav-tabs {
   display: flex;
   justify-content: space-around;
@@ -38,6 +40,7 @@ h2 {
   background-color: #f0f8ff;
 }
 
+/* === Карточка книги === */
 .book-card {
   position: relative;
   display: flex;
@@ -102,6 +105,7 @@ h2 {
   opacity: 1;
 }
 
+/* === Общие стили кнопок === */
 button {
   padding: 10px 16px;
   background-color: #007aff;
@@ -126,6 +130,8 @@ button {
   color: #333;
   font-size: 14px;
 }
+
+/* === Экспорт файлов (меню выбора формата) === */
 .export-container {
   position: relative;
   margin-top: 20px;
@@ -164,11 +170,6 @@ button {
 .hidden {
   display: none;
 }
-.button-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
 
 /* 🌙 Поддержка тёмной темы Telegram WebApp */
 @media (prefers-color-scheme: dark) {
@@ -199,7 +200,8 @@ button {
 .back-btn:hover {
   background-color: #d5d5d5;
 }
-/* === Zoom Overlay === */
+  
+/* === Увеличение обложки книги === */
 #zoom-overlay {
   position: fixed;
   top: 0;
@@ -233,20 +235,15 @@ button {
 #zoom-overlay:not(.hidden) img {
   transform: scale(1);
 }
-.editable-box {
-  border: 1px solid #ccc;
-  min-height: 150px;
-  padding: 10px;
-  background: #fff;
-  border-radius: 8px;
-  white-space: pre-wrap;
-}
 
+/* === Комментарий к книге === */  
 .comment-actions {
   margin-top: 16px;
   display: flex;
   gap: 12px;
 }
+
+/* === Toast UI Editor: стилизация и позиционирование === */
 /* Смещаем всплывающие окна внутрь, если они выходят за край */
 toastui-editor-popup {
   max-width: 95vw !important;
@@ -260,6 +257,7 @@ toastui-editor-popup {
   padding: 4px 6px;
 }
 
+  /* === Кнопка предпросмотра комментария в карточке === */
 .comment-preview button {
   background: #007bff;
   color: white;
