@@ -149,7 +149,7 @@ window.submitAddForm = async function(e) {
     cover_url: document.getElementById("cover_url").value,
     status: document.getElementById("status").value,
     rating: ratingValue ? Number(ratingValue) : null,
-    comment: document.getElementById("comment").value.trim(),
+    comment: "", // или null
     added_at: new Date().toISOString().split("T")[0],
     finished_at: document.getElementById("status").value === 'read' ? new Date().toISOString().split("T")[0] : null
   };
