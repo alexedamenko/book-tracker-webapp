@@ -158,7 +158,7 @@ window.submitAddForm = async function(e) {
   renderMainScreen();
 };
 
-window.editBook = function(id) {
+indow.editBook = function(id) {
   const book = books.find(b => b.id === id);
   const container = document.getElementById("app");
 
@@ -171,11 +171,13 @@ window.editBook = function(id) {
       <input type="date" id="added_at" value="${book.added_at || ""}" />
       <input type="date" id="started_at" value="${book.started_at || ""}" />
       <input type="date" id="finished_at" value="${book.finished_at || ""}" />
+      
       <select id="status">
         <option value="want_to_read" ${book.status === 'want_to_read' ? 'selected' : ''}>Хочу прочитать</option>
         <option value="reading" ${book.status === 'reading' ? 'selected' : ''}>Читаю</option>
         <option value="read" ${book.status === 'read' ? 'selected' : ''}>Прочитал</option>
       </select>
+
       <select id="rating">
         <option value="">Без оценки</option>
         ${[1,2,3,4,5].map(n => `<option value="${n}" ${book.rating === n ? 'selected' : ''}>⭐ ${n}</option>`).join("")}
@@ -190,14 +192,14 @@ window.editBook = function(id) {
 
   document.getElementById("editForm").addEventListener("submit", async function(e) {
     e.preventDefault();
-    
+
     const updated = {
       title: document.getElementById("title").value.trim(),
       author: document.getElementById("author").value.trim(),
       cover_url: document.getElementById("cover_url").value.trim(),
       status: document.getElementById("status").value,
       rating: document.getElementById("rating").value ? Number(document.getElementById("rating").value) : null,
-      comment: document.getElementById("comment").value.trim(),
+      comment: book.comment, // сохраняем существующий комментарий как есть
       added_at: document.getElementById("added_at").value || null,
       started_at: document.getElementById("started_at").value || null,
       finished_at: document.getElementById("finished_at").value || null
@@ -218,37 +220,6 @@ window.editBook = function(id) {
   });
 };
 
-
-window.submitEditForm = async function(e, id) {
-  e.preventDefault();
-
-  const ratingValue = document.getElementById("rating").value;
-  const updated = {
-    title: document.getElementById("title").value.trim(),
-    author: document.getElementById("author").value.trim(),
-    cover_url: document.getElementById("cover_url").value.trim(),
-    status: document.getElementById("status").value,
-    rating: ratingValue ? Number(ratingValue) : null,
-    comment: book.comment, // или "" — чтобы сохранить старое без изменений
-    added_at: document.getElementById("added_at").value || null,
-    started_at: document.getElementById("started_at").value || null,
-    finished_at: document.getElementById("finished_at").value || null
-  };
-
-  const { error } = await supabase
-    .from('user_books')
-    .update(updated)
-    .eq("id", id);
-
-  if (error) {
-    console.error(error);
-    alert("❌ Ошибка при обновлении книги");
-    return;
-  }
-
-  alert("✅ Сохранено");
-  renderMainScreen(); // перерисовываем
-};
 window.deleteBook = async function(id) {
   const confirmDelete = confirm("Удалить эту книгу? Это действие нельзя отменить.");
   if (!confirmDelete) return;
