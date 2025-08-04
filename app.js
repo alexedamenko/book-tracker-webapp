@@ -73,7 +73,7 @@ window.renderMainScreen = async function() {
   });
 }
 
-// 🔁 Переключение вкладки (читаю, прочитал и т.д.)
+ 🔁 Переключение вкладки (читаю, прочитал и т.д.)
 window.switchTab = function(tab) {
   currentTab = tab;
   renderMainScreen();
@@ -372,6 +372,7 @@ window.toastEditor = new toastui.Editor({
     ['hr', 'quote'],
     ['ul', 'ol', 'task'],
     ['table', 'link', 'image'],
+    
     // 👉 Добавляем кнопки Undo/Redo
     [{
       name: 'undo',
@@ -395,7 +396,6 @@ window.toastEditor = new toastui.Editor({
     }
   }
 });
-
 
     // 💡 Корректировка позиции всплывающих окон
     const fixPopupPosition = () => {
