@@ -96,8 +96,9 @@ function renderBookCard(book) {
           ${book.rating ? `<div class="stars">${renderStars(book.rating)}</div>` : ""}
           ${book.started_at ? `<div>📖 ${book.started_at}</div>` : ""}
           ${book.finished_at ? `<div>🏁 ${book.finished_at}</div>` : ""}
-          ${book.comment ? `<div class="comment-preview"><button onclick="openComment('${book.id}')">💬 Заметки/Выводы</button></div>` : ""}
-
+          <div class="comment-preview">
+            <button onclick="openComment('${book.id}')">💬 Заметки/Выводы</button>
+                  </div>
               </div>
          </div>
     </div>
