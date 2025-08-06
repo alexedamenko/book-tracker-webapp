@@ -158,18 +158,29 @@ window.showAddForm = function() {
 
 // Функция загрузки обложки в Supabase
 async function uploadCover(file) {
-  const fileName = `${crypto.randomUUID()}.${file.type.split("/")[1]}`;
+  if (!file) {
+    alert("Файл не выбран");
+    return "";
+  }
+
+  // Получаем расширение безопасно
+  const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+  const fileName = `${crypto.randomUUID()}.${ext}`;
+
+  // Загружаем в bucket covers
   const { error } = await supabase.storage
     .from("covers")
     .upload(fileName, file, { upsert: false });
 
   if (error) {
+    console.error("Ошибка загрузки обложки:", error);
     alert("Ошибка загрузки обложки");
     return "";
   }
 
+  // Получаем публичный URL
   const { data } = supabase.storage.from("covers").getPublicUrl(fileName);
-  return data.publicUrl;
+  return data?.publicUrl || "";
 }
 
 // ✅ Обработка добавления новой книги
