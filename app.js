@@ -50,17 +50,32 @@ window.renderMainScreen = async function () {
   initExportButtons();
 };
 
-// 📤 Обработчики экспорта
-function initExportButtons() {
-  const exportBtn = document.getElementById("exportBtn");
-  exportBtn.addEventListener("click", () => {
+// ⬇️ Назначение обработчиков на кнопки экспорта
+  document.getElementById("exportBtn").addEventListener("click", () => {
     document.getElementById("formatMenu").classList.toggle("hidden");
   });
 
   document.querySelectorAll(".format-option").forEach(option => {
-    option.addEventListener("click", () => handleExport(option.getAttribute("data-format")));
+    option.addEventListener("click", async () => {
+      const format = option.getAttribute("data-format");
+      document.getElementById("formatMenu").classList.add("hidden");
+
+      const { data, error } = await supabase
+        .from("user_books")
+        .select("*")
+        .eq("user_id", userId);
+
+      if (error) {
+        alert("Ошибка при получении данных");
+        return;
+      }
+
+      if (format === "csv") exportToCSV(data);
+      if (format === "json") exportToJSON(data);
+    });
   });
 }
+
 
 // ☑️ Переключение вкладки
 window.switchTab = function (tab) {
