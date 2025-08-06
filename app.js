@@ -186,7 +186,8 @@ async function uploadCover(file) {
 // ✅ Обработка добавления новой книги
 window.submitAddForm = async function(e) {
   e.preventDefault();
-
+  const tgUser = Telegram.WebApp.initDataUnsafe?.user || {};
+  
   let coverUrl = document.getElementById("cover_url").value.trim();
   const file = document.getElementById("cover_file").files[0];
   if (file) {
