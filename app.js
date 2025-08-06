@@ -179,31 +179,27 @@ window.showAddForm = function() {
 };
 
 // 📤 Загрузка обложки в Supabase
-async function uploadCover(file) {
-  if (!file) {
-    console.error("Файл обложки не выбран");
-    return "";
-  }
+// 📷 Загрузка обложки в Supabase
+export async function uploadCover(file) {
+  if (!file) return "";
 
-  // Определяем расширение файла
-  const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
+  const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
   const fileName = `${crypto.randomUUID()}.${ext}`;
 
-  // Загружаем в bucket covers
-  const { error: uploadError } = await supabase.storage
+  const { error } = await supabase.storage
     .from("covers")
     .upload(fileName, file, {
-      contentType: file.type, // важно для корректной загрузки
-      upsert: false
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type // 🔹 Обязательно указываем тип файла
     });
 
-  if (uploadError) {
-    console.error("Ошибка загрузки обложки:", uploadError);
-    alert("❌ Ошибка загрузки обложки");
+  if (error) {
+    console.error("Ошибка загрузки обложки:", error);
+    alert("Ошибка загрузки обложки");
     return "";
   }
 
-  // Получаем публичный URL
   const { data } = supabase.storage.from("covers").getPublicUrl(fileName);
   return data?.publicUrl || "";
 }
