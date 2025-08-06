@@ -149,11 +149,7 @@ window.showAddForm = function() {
 
       <select id="rating">
         <option value="">Без оценки</option>
-        <option value="1">⭐ 1</option>
-        <option value="2">⭐ 2</option>
-        <option value="3">⭐ 3</option>
-        <option value="4">⭐ 4</option>
-        <option value="5">⭐ 5</option>
+        ${[1,2,3,4,5].map(n => `<option value="${n}">⭐ ${n}</option>`).join("")}
       </select>
 
       <input type="date" id="started_at" placeholder="Дата начала (необязательно)" />
