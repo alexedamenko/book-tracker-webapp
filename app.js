@@ -237,12 +237,18 @@ window.submitAddForm = async function (e) {
 
   const ratingValue = document.getElementById("rating").value;
 
-  // 🔹 Нормализация названия и автора
-  const normalize = (str) => str.trim().replace(/\s+/g, " ").toLowerCase();
+  // 🔹 Нормализация
+  const normalize = (str) =>
+    str.trim().replace(/\s+/g, " ").toLowerCase();
+
+  const normalizeAuthor = (str) =>
+    normalize(str).split(" ").sort().join(" ");
+
   const title = document.getElementById("title").value.trim();
   const author = document.getElementById("author").value.trim();
+
   const normTitle = normalize(title);
-  const normAuthor = normalize(author);
+  const normAuthor = normalizeAuthor(author);
 
   const book = {
     id: crypto.randomUUID(),
@@ -259,17 +265,17 @@ window.submitAddForm = async function (e) {
     finished_at: finishedAt
   };
 
-  // 📌 Проверка в books_library без учёта регистра и лишних пробелов
+  // 📌 Проверка в books_library без дублей
   const { data: existing, error: searchError } = await supabase
     .from("books_library")
     .select("id, title, author")
-    .limit(50); // забираем небольшой список для проверки
+    .limit(100); // ограничим запрос
 
   if (searchError) {
     console.error("Ошибка проверки в books_library:", searchError);
   } else {
     const duplicate = existing.find(
-      b => normalize(b.title) === normTitle && normalize(b.author) === normAuthor
+      b => normalize(b.title) === normTitle && normalizeAuthor(b.author) === normAuthor
     );
 
     if (!duplicate) {
