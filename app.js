@@ -16,7 +16,7 @@ let books = [];
 let currentTab = "read";
 
 // 🔁 Основная функция отрисовки экрана с книгами
-window.renderMainScreen = async function() {
+window.renderMainScreen = async function () {
   books = await getBooks(userId);
   const container = document.getElementById("app");
   const filtered = books.filter(b => b.status === currentTab);
@@ -33,7 +33,7 @@ window.renderMainScreen = async function() {
     <button onclick="showAddForm()">+ Добавить книгу</button>
 
     <div id="book-list">
-      ${filtered.map(renderBookCard).join("")}
+      ${filtered.length > 0 ? filtered.map(renderBookCard).join("") : "<p>📭 Нет книг в этой категории</p>"}
     </div>
 
     <div class="footer-buttons">
@@ -42,41 +42,42 @@ window.renderMainScreen = async function() {
         <div class="format-option" data-format="csv">CSV</div>
         <div class="format-option" data-format="json">JSON</div>
       </div>
-      <button>📊 Статистика</button>
-      <button>🔍 Поиск / рекомендации</button>
+      <button onclick="showStats()">📊 Статистика</button>
+      <button onclick="showSearch()">🔍 Поиск / рекомендации</button>
     </div>
   `;
 
-  // ⬇️ Назначение обработчиков на кнопки экспорта
-  document.getElementById("exportBtn").addEventListener("click", () => {
+  initExportButtons();
+};
+
+// 📤 Обработчики экспорта
+function initExportButtons() {
+  const exportBtn = document.getElementById("exportBtn");
+  exportBtn.addEventListener("click", () => {
     document.getElementById("formatMenu").classList.toggle("hidden");
   });
 
   document.querySelectorAll(".format-option").forEach(option => {
-    option.addEventListener("click", async () => {
-      const format = option.getAttribute("data-format");
-      document.getElementById("formatMenu").classList.add("hidden");
-
-      const { data, error } = await supabase
-        .from("user_books")
-        .select("*")
-        .eq("user_id", userId);
-
-      if (error) {
-        alert("Ошибка при получении данных");
-        return;
-      }
-
-      if (format === "csv") exportToCSV(data);
-      if (format === "json") exportToJSON(data);
-    });
+    option.addEventListener("click", () => handleExport(option.getAttribute("data-format")));
   });
 }
 
-// 🔁 Переключение вкладки (читаю, прочитал и т.д.)
-window.switchTab = function(tab) {
+// ☑️ Переключение вкладки
+window.switchTab = function (tab) {
   currentTab = tab;
   renderMainScreen();
+};
+
+// 📷 Зум обложки (одна функция вместо трёх)
+window.showZoom = function (url) {
+  const overlay = document.getElementById("zoom-overlay");
+  const img = document.getElementById("zoom-image");
+  img.src = url;
+  overlay.classList.remove("hidden");
+};
+
+window.closeZoom = function () {
+  document.getElementById("zoom-overlay").classList.add("hidden");
 };
 
 // 🧩 Отрисовка карточки книги (обложка, название, рейтинг, даты и заметка)
@@ -218,8 +219,8 @@ window.submitAddForm = async function(e) {
   const book = {
     id: crypto.randomUUID(),
     user_id: userId,
-    username: tgUser?.first_name || "",
-    user_first_name: tgUser?.username || "",
+    user_first_name: tgUser?.first_name || "",
+    username: tgUser?.username || "",
     title: document.getElementById("title").value.trim(),
     author: document.getElementById("author").value.trim(),
     cover_url: coverUrl || "",
@@ -437,10 +438,6 @@ window.showZoom = function (url) {
   const img = document.getElementById("zoom-image");
   img.src = url;
   overlay.classList.remove("hidden");
-};
-
-window.closeZoom = function () {
-  document.getElementById("zoom-overlay").classList.add("hidden");
 };
 
 // 💬 Открытие/редактирование комментария к книге через Toast UI Editor
