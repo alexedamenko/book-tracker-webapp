@@ -266,8 +266,9 @@ window.editBook = function(id) {
 
       <label>Обложка (выберите файл или вставьте ссылку):</label>
       <input type="file" id="cover_file" accept="image/*" />
-      <input type="url" id="cover_url" value="${book.cover_url}" placeholder="Ссылка на обложку" />
-      <img id="coverPreview" src="${book.cover_url}" style="max-height:100px; margin-top:5px; display:${book.cover_url ? 'block' : 'none'};" />
+      <input type="url" id="cover_url" value="${book.cover_url || ''}" />
+      <img id="coverPreview" src="${book.cover_url || ''}" 
+           style="max-height:100px; margin-top:5px; ${book.cover_url ? '' : 'display:none;'}" />
 
       <input type="date" id="added_at" value="${book.added_at || ""}" />
       <input type="date" id="started_at" value="${book.started_at || ""}" />
@@ -289,11 +290,34 @@ window.editBook = function(id) {
     <button id="backBtn">← Назад</button>
   `;
 
+  // 🔹 Предпросмотр обложки при выборе файла
+  document.getElementById("cover_file").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const preview = document.getElementById("coverPreview");
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = "block";
+    }
+  });
+
+  // 🔹 Предпросмотр при вставке URL
+  document.getElementById("cover_url").addEventListener("input", (e) => {
+    const url = e.target.value.trim();
+    const preview = document.getElementById("coverPreview");
+    if (url) {
+      preview.src = url;
+      preview.style.display = "block";
+    } else {
+      preview.style.display = "none";
+    }
+  });
+
   document.getElementById("backBtn").addEventListener("click", renderMainScreen);
 
   document.getElementById("editForm").addEventListener("submit", async function(e) {
     e.preventDefault();
 
+    // Если выбрали файл — загружаем в Supabase
     let coverUrl = document.getElementById("cover_url").value.trim();
     const file = document.getElementById("cover_file").files[0];
     if (file) {
@@ -306,7 +330,7 @@ window.editBook = function(id) {
       cover_url: coverUrl,
       status: document.getElementById("status").value,
       rating: document.getElementById("rating").value ? Number(document.getElementById("rating").value) : null,
-      comment: book.comment || "", // сохраняем старый комментарий
+      comment: book.comment,
       added_at: document.getElementById("added_at").value || null,
       started_at: document.getElementById("started_at").value || null,
       finished_at: document.getElementById("finished_at").value || null
