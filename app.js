@@ -47,10 +47,7 @@ window.renderMainScreen = async function () {
     </div>
   `;
 
-  initExportButtons();
-};
-
-// ⬇️ Назначение обработчиков на кнопки экспорта
+  // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
     document.getElementById("formatMenu").classList.toggle("hidden");
   });
