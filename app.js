@@ -213,33 +213,80 @@ export async function uploadCover(file) {
 }
 
 // ✅ Обработка добавления новой книги
-window.submitAddForm = async function(e) {
+window.submitAddForm = async function (e) {
   e.preventDefault();
   const tgUser = Telegram.WebApp.initDataUnsafe?.user || {};
-  
+
   let coverUrl = document.getElementById("cover_url").value.trim();
   const file = document.getElementById("cover_file").files[0];
   if (file) {
     coverUrl = await uploadCover(file);
+    if (!coverUrl) {
+      alert("❌ Не удалось загрузить обложку. Попробуйте ещё раз.");
+      return;
+    }
+  }
+
+  const status = document.getElementById("status").value;
+  const startedAt = document.getElementById("started_at").value || null;
+  let finishedAt = document.getElementById("finished_at").value || null;
+
+  if (status === "read" && !finishedAt) {
+    finishedAt = new Date().toISOString().split("T")[0];
   }
 
   const ratingValue = document.getElementById("rating").value;
+
+  // 🔹 Нормализация названия и автора
+  const normalize = (str) => str.trim().replace(/\s+/g, " ").toLowerCase();
+  const title = document.getElementById("title").value.trim();
+  const author = document.getElementById("author").value.trim();
+  const normTitle = normalize(title);
+  const normAuthor = normalize(author);
+
   const book = {
     id: crypto.randomUUID(),
     user_id: userId,
-    user_first_name: tgUser?.first_name || "",
     username: tgUser?.username || "",
-    title: document.getElementById("title").value.trim(),
-    author: document.getElementById("author").value.trim(),
+    user_first_name: tgUser?.first_name || "",
+    title,
+    author,
     cover_url: coverUrl || "",
-    status: document.getElementById("status").value,
+    status,
     rating: ratingValue ? Number(ratingValue) : null,
     added_at: new Date().toISOString().split("T")[0],
-    finished_at: document.getElementById("status").value === 'read'
-      ? new Date().toISOString().split("T")[0]
-      : null
+    started_at: startedAt,
+    finished_at: finishedAt
   };
 
+  // 📌 Проверка в books_library без учёта регистра и лишних пробелов
+  const { data: existing, error: searchError } = await supabase
+    .from("books_library")
+    .select("id, title, author")
+    .limit(50); // забираем небольшой список для проверки
+
+  if (searchError) {
+    console.error("Ошибка проверки в books_library:", searchError);
+  } else {
+    const duplicate = existing.find(
+      b => normalize(b.title) === normTitle && normalize(b.author) === normAuthor
+    );
+
+    if (!duplicate) {
+      const { error: insertError } = await supabase
+        .from("books_library")
+        .insert([{
+          title,
+          author,
+          cover_url: coverUrl || null
+        }]);
+      if (insertError) {
+        console.error("Ошибка добавления в books_library:", insertError);
+      }
+    }
+  }
+
+  // 📌 Добавляем книгу в трекер
   await addBook(book);
   currentTab = book.status;
   renderMainScreen();
