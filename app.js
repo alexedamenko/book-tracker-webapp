@@ -198,8 +198,8 @@ window.submitAddForm = async function(e) {
   const book = {
     id: crypto.randomUUID(),
     user_id: userId,
-    user_name: tgUser?.first_name || "",
-    user_username: tgUser?.username || "",
+    username: tgUser?.first_name || "",
+    user_first_name: tgUser?.username || "",
     title: document.getElementById("title").value.trim(),
     author: document.getElementById("author").value.trim(),
     cover_url: coverUrl || "",
