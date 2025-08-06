@@ -156,25 +156,28 @@ window.showAddForm = function() {
   document.getElementById("title").addEventListener("input", handleBookSearch);
 };
 
-// Функция загрузки обложки в Supabase
+// 📤 Загрузка обложки в Supabase
 async function uploadCover(file) {
   if (!file) {
-    alert("Файл не выбран");
+    console.error("Файл обложки не выбран");
     return "";
   }
 
-  // Получаем расширение безопасно
-  const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+  // Определяем расширение файла
+  const ext = file.name.split('.').pop().toLowerCase() || 'jpg';
   const fileName = `${crypto.randomUUID()}.${ext}`;
 
   // Загружаем в bucket covers
-  const { error } = await supabase.storage
+  const { error: uploadError } = await supabase.storage
     .from("covers")
-    .upload(fileName, file, { upsert: false });
+    .upload(fileName, file, {
+      contentType: file.type, // важно для корректной загрузки
+      upsert: false
+    });
 
-  if (error) {
-    console.error("Ошибка загрузки обложки:", error);
-    alert("Ошибка загрузки обложки");
+  if (uploadError) {
+    console.error("Ошибка загрузки обложки:", uploadError);
+    alert("❌ Ошибка загрузки обложки");
     return "";
   }
 
