@@ -154,6 +154,33 @@ window.showAddForm = function() {
 
   // 🔍 Автопоиск книг
   document.getElementById("title").addEventListener("input", handleBookSearch);
+
+  // 📷 Предпросмотр при выборе файла
+  document.getElementById("cover_file").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const preview = document.getElementById("coverPreview");
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = "block";
+    }
+  });
+
+  // 📷 Предпросмотр при вставке URL
+  document.getElementById("cover_url").addEventListener("input", (e) => {
+    const url = e.target.value.trim();
+    const preview = document.getElementById("coverPreview");
+    if (url) {
+      preview.src = url;
+      preview.style.display = "block";
+    } else {
+      preview.style.display = "none";
+    }
+  });
+};
+
+
+  // 🔍 Автопоиск книг
+  document.getElementById("title").addEventListener("input", handleBookSearch);
 };
 
 // 📤 Загрузка обложки в Supabase
