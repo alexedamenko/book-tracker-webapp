@@ -260,7 +260,12 @@ window.editBook = function(id) {
     <form id="editForm">
       <input type="text" id="title" value="${book.title}" required />
       <input type="text" id="author" value="${book.author}" required />
-      <input type="url" id="cover_url" value="${book.cover_url}" />
+
+      <label>Обложка (выберите файл или вставьте ссылку):</label>
+      <input type="file" id="cover_file" accept="image/*" />
+      <input type="url" id="cover_url" value="${book.cover_url}" placeholder="Ссылка на обложку" />
+      <img id="coverPreview" src="${book.cover_url}" style="max-height:100px; margin-top:5px; display:${book.cover_url ? 'block' : 'none'};" />
+
       <input type="date" id="added_at" value="${book.added_at || ""}" />
       <input type="date" id="started_at" value="${book.started_at || ""}" />
       <input type="date" id="finished_at" value="${book.finished_at || ""}" />
@@ -286,13 +291,19 @@ window.editBook = function(id) {
   document.getElementById("editForm").addEventListener("submit", async function(e) {
     e.preventDefault();
 
+    let coverUrl = document.getElementById("cover_url").value.trim();
+    const file = document.getElementById("cover_file").files[0];
+    if (file) {
+      coverUrl = await uploadCover(file);
+    }
+
     const updated = {
       title: document.getElementById("title").value.trim(),
       author: document.getElementById("author").value.trim(),
-      cover_url: document.getElementById("cover_url").value.trim(),
+      cover_url: coverUrl,
       status: document.getElementById("status").value,
       rating: document.getElementById("rating").value ? Number(document.getElementById("rating").value) : null,
-      comment: book.comment, // сохраняем существующий комментарий как есть
+      comment: book.comment || "", // сохраняем старый комментарий
       added_at: document.getElementById("added_at").value || null,
       started_at: document.getElementById("started_at").value || null,
       finished_at: document.getElementById("finished_at").value || null
@@ -312,6 +323,7 @@ window.editBook = function(id) {
     }
   });
 };
+
 
 // 🗑 Удаление книги
 window.deleteBook = async function(id) {
