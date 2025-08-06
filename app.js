@@ -178,11 +178,6 @@ window.showAddForm = function() {
   });
 };
 
-
-  // 🔍 Автопоиск книг
-  document.getElementById("title").addEventListener("input", handleBookSearch);
-};
-
 // 📤 Загрузка обложки в Supabase
 async function uploadCover(file) {
   if (!file) {
