@@ -268,3 +268,20 @@ toastui-editor-popup {
   font-size: 13px;
   margin-top: 6px;
 }
+
+/* === Список подсказок в карточке === */
+.suggestions-list {
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  margin-top: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.suggestion-item {
+  padding: 8px;
+  cursor: pointer;
+}
+.suggestion-item:hover {
+  background: #f0f0f0;
+}
