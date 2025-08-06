@@ -118,9 +118,15 @@ window.showAddForm = function() {
   container.innerHTML = `
     <h2>➕ Добавление книги</h2>
     <form class="add-book-form" onsubmit="submitAddForm(event)">
-      <input type="text" id="title" placeholder="Название книги" required />
+      <input type="text" id="title" placeholder="Название книги" required autocomplete="off" />
+      <div id="suggestions" class="suggestions-list"></div>
+
       <input type="text" id="author" placeholder="Автор" required />
+
+      <label>Обложка (выберите файл или вставьте ссылку):</label>
+      <input type="file" id="cover_file" accept="image/*" />
       <input type="url" id="cover_url" placeholder="Ссылка на обложку (необязательно)" />
+      <img id="coverPreview" style="max-height:100px; margin-top:5px; display:none;" />
 
       <select id="status">
         <option value="want_to_read">Хочу прочитать</option>
@@ -139,41 +145,102 @@ window.showAddForm = function() {
 
       <input type="date" id="started_at" placeholder="Дата начала (необязательно)" />
       <input type="date" id="finished_at" placeholder="Дата окончания (необязательно)" />
-     
 
       <button type="submit" class="save-btn">💾 Сохранить</button>
     </form>
 
     <button class="back-btn" onclick="renderMainScreen()">← Назад</button>
   `;
+
+  // 🔍 Автопоиск книг
+  document.getElementById("title").addEventListener("input", handleBookSearch);
 };
+
+// Функция загрузки обложки в Supabase
+async function uploadCover(file) {
+  const fileName = `${crypto.randomUUID()}.${file.type.split("/")[1]}`;
+  const { error } = await supabase.storage
+    .from("covers")
+    .upload(fileName, file, { upsert: false });
+
+  if (error) {
+    alert("Ошибка загрузки обложки");
+    return "";
+  }
+
+  const { data } = supabase.storage.from("covers").getPublicUrl(fileName);
+  return data.publicUrl;
+}
 
 // ✅ Обработка добавления новой книги
 window.submitAddForm = async function(e) {
   e.preventDefault();
+
+  let coverUrl = document.getElementById("cover_url").value.trim();
+  const file = document.getElementById("cover_file").files[0];
+  if (file) {
+    coverUrl = await uploadCover(file);
+  }
+
   const ratingValue = document.getElementById("rating").value;
   const book = {
     id: crypto.randomUUID(),
     user_id: userId,
-    title: document.getElementById("title").value,
-    author: document.getElementById("author").value,
-    cover_url: document.getElementById("cover_url").value,
+    title: document.getElementById("title").value.trim(),
+    author: document.getElementById("author").value.trim(),
+    cover_url: coverUrl || "",
     status: document.getElementById("status").value,
     rating: ratingValue ? Number(ratingValue) : null,
-    comment: "", // или null
     added_at: new Date().toISOString().split("T")[0],
-    finished_at: document.getElementById("status").value === 'read' ? new Date().toISOString().split("T")[0] : null
+    finished_at: document.getElementById("status").value === 'read'
+      ? new Date().toISOString().split("T")[0]
+      : null
   };
+
   await addBook(book);
   currentTab = book.status;
   renderMainScreen();
 };
 
+// ✏️ Автозаполнение полей книги
+async function searchBooks(query) {
+  const { data, error } = await supabase
+    .from("books_library") // таблица всех книг
+    .select("title, author, cover_url")
+    .ilike("title", `%${query}%`)
+    .limit(5);
+
+  return error ? [] : data;
+}
+
+async function handleBookSearch(e) {
+  const value = e.target.value.trim();
+  const list = document.getElementById("suggestions");
+  list.innerHTML = "";
+  if (value.length < 4) return;
+
+  const suggestions = await searchBooks(value);
+  list.innerHTML = suggestions.map(
+    book => `<div class="suggestion-item" onclick="selectBook('${book.title}', '${book.author}', '${book.cover_url || ""}')">${book.title} — ${book.author}</div>`
+  ).join("");
+}
+
+window.selectBook = function(title, author, coverUrl) {
+  document.getElementById("title").value = title;
+  document.getElementById("author").value = author;
+  if (coverUrl) {
+    document.getElementById("coverPreview").src = coverUrl;
+    document.getElementById("coverPreview").style.display = "block";
+    document.getElementById("cover_url").value = coverUrl;
+  }
+  document.getElementById("suggestions").innerHTML = "";
+};
+
+// ✏️ Показ формы редактирования книги
 window.editBook = function(id) {
   const book = books.find(b => b.id === id);
   const container = document.getElementById("app");
 
-// ✏️ Показ формы редактирования книги  
   container.innerHTML = `
     <h2>✏️ Редактирование книги</h2>
     <form id="editForm">
