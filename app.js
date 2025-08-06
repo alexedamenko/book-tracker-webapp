@@ -377,22 +377,29 @@ window.editBook = function(id) {
   });
 };
 
-
 // 🗑 Удаление книги
 window.deleteBook = async function(id) {
+  const book = books.find(b => b.id === id);
   const confirmDelete = confirm("Удалить эту книгу? Это действие нельзя отменить.");
   if (!confirmDelete) return;
 
+  // удаляем картинки из комментариев
+  if (book?.comment) {
+    const images = (book.comment.match(/https?:\/\/[^\s)]+/g) || []).filter(url => url.includes("/comments/"));
+    for (const imgUrl of images) {
+      await deleteImageFromSupabase(imgUrl);
+    }
+  }
+
+  // удаляем запись из базы
   const { error } = await supabase.from("user_books").delete().eq("id", id);
   if (error) {
     alert("❌ Ошибка при удалении");
     return;
   }
-
-  alert("🗑 Книга удалена");
+alert("🗑 Книга удалена");
   await renderMainScreen();
 };
-
 
 // 📤 Экспорт в CSV/JSON
 function exportToCSV(data) {
@@ -430,23 +437,19 @@ async function uploadAndShare(content, filename, type) {
 
 renderMainScreen();
 
-// 🔍 Zoom-отображение обложки книги
-window.zoomImage = function (url) {
-  const overlay = document.getElementById("zoom-overlay");
-  const img = document.getElementById("zoom-image");
-  img.src = url;
-  overlay.classList.remove("hidden");
-};
-
-window.closeZoom = function () {
-  document.getElementById("zoom-overlay").classList.add("hidden");
-};
-window.showZoom = function (url) {
-  const overlay = document.getElementById("zoom-overlay");
-  const img = document.getElementById("zoom-image");
-  img.src = url;
-  overlay.classList.remove("hidden");
-};
+// 📸 Удаление изображения из Supabase Storage по URL
+async function deleteImageFromSupabase(imageUrl) {
+  try {
+    if (!imageUrl.includes("/comments/")) return; // только картинки из bucket comments
+    const fileName = decodeURIComponent(imageUrl.split("/").pop());
+    const { error } = await supabase.storage
+      .from("comments")
+      .remove([fileName]);
+    if (error) console.error("Ошибка удаления файла:", error);
+  } catch (err) {
+    console.error("Ошибка обработки удаления:", err);
+  }
+}
 
 // 💬 Открытие/редактирование комментария к книге через Toast UI Editor
 window.openComment = function(bookId, readonly = true) {
@@ -534,10 +537,23 @@ if (rect.left < 0 || rect.right > window.innerWidth) {
 };
 
 
-
+// сохранение комментария
 window.saveComment = async function(bookId) {
-  const newComment = toastEditor.getMarkdown(); // Или .getHTML() — как тебе удобнее
+  const book = books.find(b => b.id === bookId);
+  const oldComment = book?.comment || "";
+  const newComment = toastEditor.getMarkdown();
 
+  // находим удалённые картинки
+  const oldImages = (oldComment.match(/https?:\/\/[^\s)]+/g) || []).filter(url => url.includes("/comments/"));
+  const newImages = (newComment.match(/https?:\/\/[^\s)]+/g) || []).filter(url => url.includes("/comments/"));
+  const removedImages = oldImages.filter(url => !newImages.includes(url));
+
+  // удаляем их из storage
+  for (const imgUrl of removedImages) {
+    await deleteImageFromSupabase(imgUrl);
+  }
+
+  // сохраняем новый комментарий
   const { error } = await supabase
     .from("user_books")
     .update({ comment: newComment })
