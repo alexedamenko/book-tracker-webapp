@@ -178,7 +178,6 @@ window.showAddForm = function() {
   });
 };
 
-// 📤 Загрузка обложки в Supabase
 // 📷 Загрузка обложки в Supabase
 export async function uploadCover(file) {
   if (!file) return "";
