@@ -36,9 +36,11 @@ export default async function handler(req, res) {
       req.pipe(busboy);
     });
 
-    const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
-    const fileName = `${crypto.randomUUID()}.${ext}`;
+    const ext = (typeof result.filename === 'string' && result.filename.includes('.'))
+      ? result.filename.split('.').pop()
+      : 'jpg';
 
+    const fileName = `${crypto.randomUUID()}.${ext}`;
 
     const { error } = await supabase.storage
       .from("covers")
