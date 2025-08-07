@@ -9,7 +9,8 @@ import {
   updateBook,
   deleteBook,
   saveComment,
-  checkAndInsertLibraryBook
+  checkAndInsertLibraryBook,
+  deleteImageFromStorage
 } from './api.js';
 
 // ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
