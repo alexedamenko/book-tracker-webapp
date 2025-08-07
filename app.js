@@ -580,7 +580,7 @@ window.toastEditor = new toastui.Editor({
   ],
   hooks: {
     addImageBlobHook: async (blob, callback) => {
-      const url = await uploadImageToSupabase(blob);
+      const url = await uploadCommentImage(blob);
       callback(url, 'загруженное изображение');
     }
   }
