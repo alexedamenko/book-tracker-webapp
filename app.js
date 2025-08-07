@@ -549,9 +549,7 @@ async function deleteImageFromSupabase(imageUrl) {
   try {
     if (!imageUrl.includes("/comments/")) return; // только картинки из bucket comments
     const fileName = decodeURIComponent(imageUrl.split("/").pop());
-    const { error } = await supabase.storage
-      .from("comments")
-      .remove([fileName]);
+    await deleteImageFromStorage("comments", fileName);
     if (error) console.error("Ошибка удаления файла:", error);
   } catch (err) {
     console.error("Ошибка обработки удаления:", err);
