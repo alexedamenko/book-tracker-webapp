@@ -504,6 +504,7 @@ function exportToJSON(data) {
   const jsonContent = JSON.stringify(data, null, 2);
   uploadAndShare(jsonContent, `books-${userId}.json`, "application/json");
 }
+
 // ☁️ Загрузка и открытие файла экспорта
 async function uploadAndShare(content, filename, type) {
   const blob = new Blob([content], { type });
