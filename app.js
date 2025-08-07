@@ -213,7 +213,19 @@ window.showAddForm = function() {
       preview.style.display = "none";
     }
   });
+
+  // Дата Прочтения
+  document.getElementById("status").addEventListener("change", () => {
+  const status = document.getElementById("status").value;
+  const finishedInput = document.getElementById("finished_at");
+
+  if (status === "read" && !finishedInput.value) {
+    const today = new Date().toISOString().split("T")[0];
+    finishedInput.value = today;
+  }
+});
 };
+
 
 // 📷 Загрузка обложки в Supabase
 export async function uploadCover(file) {
@@ -360,6 +372,7 @@ window.selectBook = function(title, author, coverUrl) {
   document.getElementById("suggestions").innerHTML = "";
 };
 
+// ✏️ Показ формы редактирования книги
 window.editBook = function(id) {
   const book = books.find(b => b.id === id);
   const container = document.getElementById("app");
@@ -449,6 +462,18 @@ window.editBook = function(id) {
       preview.style.display = "none";
     }
   });
+  
+  // Дата Прочтения
+  document.getElementById("status").addEventListener("change", () => {
+  const status = document.getElementById("status").value;
+  const finishedInput = document.getElementById("finished_at");
+
+  if (status === "read" && !finishedInput.value) {
+    const today = new Date().toISOString().split("T")[0];
+    finishedInput.value = today;
+  }
+});
+
 
   // Назад
   document.getElementById("backBtn").addEventListener("click", renderMainScreen);
