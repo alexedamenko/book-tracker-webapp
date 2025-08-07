@@ -39,3 +39,22 @@ export default async function handler(req, res) {
     try {
       const { error } = await supabase.storage
         .from("exports")
+        .upload(filename, fileStream, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: mimetype,
+        });
+
+      if (error) {
+        console.error("Ошибка загрузки в Supabase:", error);
+        return res.status(500).json({ error: "Ошибка загрузки" });
+      }
+
+      const { data } = supabase.storage.from("exports").getPublicUrl(filename);
+      return res.status(200).json({ url: data.publicUrl });
+    } catch (e) {
+      console.error("Ошибка сервера:", e);
+      return res.status(500).json({ error: "Сбой сервера" });
+    }
+  });
+}
