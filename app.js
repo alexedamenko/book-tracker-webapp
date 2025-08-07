@@ -27,6 +27,7 @@ const userId = Telegram.WebApp.initDataUnsafe.user.id.toString();
 // ВРЕМЕННО: заглушка для userId
 // const userId = "demo_user_001";
 
+
 // 📚 Хранилище текущего списка книг и активной вкладки
 let books = [];
 let currentTab = "read";
