@@ -18,12 +18,14 @@ import {
 } from './api.js';
 
 // ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
-Telegram.WebApp.ready();
-if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
-  alert("❗ Пожалуйста, открой приложение через Telegram");
-  throw new Error("WebApp запущен вне Telegram");
-}
-const userId = Telegram.WebApp.initDataUnsafe.user.id.toString();
+// Telegram.WebApp.ready();
+// if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
+ //  alert("❗ Пожалуйста, открой приложение через Telegram");
+//   throw new Error("WebApp запущен вне Telegram");
+// }
+// const userId = Telegram.WebApp.initDataUnsafe.user.id.toString();
+// ВРЕМЕННО: заглушка для userId
+const userId = "demo_user_001";
 
 // 📚 Хранилище текущего списка книг и активной вкладки
 let books = [];
