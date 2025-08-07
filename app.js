@@ -59,7 +59,7 @@ window.renderMainScreen = async function () {
 
       const { data, error } = await supabase
         .from("user_books")
-        .select("*")
+        .select("title, author, status, rating, started_at, finished_at, added_at, comment")
         .eq("user_id", userId);
 
       if (error) {
