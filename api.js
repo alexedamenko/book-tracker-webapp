@@ -94,18 +94,17 @@ export async function searchBooks(query) {
 }
 
 export async function deleteImageFromStorage(bucket, fileName) {
-  const res = await fetch("/api/deleteImage", {
+  const res = await fetch("/api/deleteImageFromStorage", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ bucket, fileName })
   });
 
   if (!res.ok) {
-    console.warn("Ошибка при удалении изображения");
+    console.error("Ошибка при удалении из", bucket, fileName);
   }
 }
+
 
 export async function uploadCover(file) {
   if (!file) return "";
