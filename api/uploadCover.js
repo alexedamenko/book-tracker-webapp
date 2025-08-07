@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const busboy = require('busboy')({ headers: req.headers });
+    const busboy = Busboy({ headers: req.headers });
     const result = {};
 
     const formData = await new Promise((resolve, reject) => {
