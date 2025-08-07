@@ -496,18 +496,8 @@ window.editBook = function(id) {
       finished_at: document.getElementById("finished_at").value || null
     };
 
-    const { error } = await supabase
-      .from("user_books")
-      .update(updated)
-      .eq("id", id);
-
-    if (error) {
-      console.error("Ошибка при обновлении:", error);
-      alert("❌ Не удалось сохранить изменения");
-    } else {
-      alert("✅ Сохранено");
-      renderMainScreen();
-    }
+    await updateBook(id, updated);
+renderMainScreen();
   });
 };
 
