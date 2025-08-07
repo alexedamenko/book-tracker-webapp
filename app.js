@@ -296,15 +296,7 @@ await checkAndInsertLibraryBook(title, author, coverUrl);
 };
 
 // ✏️ Автозаполнение полей книги
-async function searchBooks(query) {
-  const { data, error } = await supabase
-    .from("books_library") // таблица всех книг
-    .select("title, author, cover_url")
-    .ilike("title", `%${query}%`)
-    .limit(5);
-
-  return error ? [] : data;
-}
+import { searchBooks } from './api.js';
 
 async function handleBookSearch(e) {
   const value = e.target.value.trim();
