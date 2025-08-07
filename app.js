@@ -462,12 +462,18 @@ window.deleteBook = async function(id) {
   if (!confirmDelete) return;
 
   // удаляем картинки из комментариев
-  if (book?.comment) {
-    const images = (book.comment.match(/https?:\/\/[^\s)]+/g) || []).filter(url => url.includes("/comments/"));
-    for (const imgUrl of images) {
-      await deleteImageFromSupabase(imgUrl);
-    }
+import { deleteCommentImage } from './api.js';
+
+if (book?.comment) {
+  const images = (book.comment.match(/https?:\/\/[^\s)]+/g) || []).filter(url =>
+    url.includes("/comments/")
+  );
+
+  for (const imgUrl of images) {
+    await deleteCommentImage(imgUrl);
   }
+}
+
 
   // удаляем запись из базы
 await deleteBook(id);
