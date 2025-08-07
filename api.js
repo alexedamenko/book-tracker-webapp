@@ -76,6 +76,23 @@ export async function uploadCommentImage(blob) {
   return url || "";
 }
 
+export async function searchBooks(query) {
+  const res = await fetch("/api/searchBooks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ query })
+  });
+
+  if (!res.ok) {
+    return [];
+  }
+
+  const { results } = await res.json();
+  return results || [];
+}
+
 export async function deleteImageFromStorage(bucket, fileName) {
   const res = await fetch("/api/deleteImage", {
     method: "POST",
