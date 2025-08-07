@@ -239,7 +239,7 @@ export async function uploadCover(file) {
   const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
   const fileName = `${crypto.randomUUID()}.${ext}`;
 
-  const { error } = await supabase.storage
+  const { error } = await supabase.storage // УДАЛИТЬ!
     .from("covers")
     .upload(fileName, file, {
       cacheControl: "3600",
@@ -311,31 +311,7 @@ window.submitAddForm = async function (e) {
   };
 
   // 📌 Проверка в books_library без дублей
-  const { data: existing, error: searchError } = await supabase
-    .from("books_library")
-    .select("id, title, author")
-    .limit(100); // ограничим запрос
-
-  if (searchError) {
-    console.error("Ошибка проверки в books_library:", searchError);
-  } else {
-    const duplicate = existing.find(
-      b => normalize(b.title) === normTitle && normalizeAuthor(b.author) === normAuthor
-    );
-
-    if (!duplicate) {
-      const { error: insertError } = await supabase
-        .from("books_library")
-        .insert([{
-          title,
-          author,
-          cover_url: coverUrl || null
-        }]);
-      if (insertError) {
-        console.error("Ошибка добавления в books_library:", insertError);
-      }
-    }
-  }
+await checkAndInsertLibraryBook(title, author, coverUrl);
 
   // 📌 Добавляем книгу в трекер
   await addBook(book);
