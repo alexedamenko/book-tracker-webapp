@@ -146,7 +146,16 @@ window.showAddForm = function() {
         <label>Обложка</label>
         <input type="file" id="cover_file" accept="image/*" />
         <input type="url" id="cover_url" placeholder="Ссылка на обложку (необязательно)" />
-        <img id="coverPreview" style="max-height:120px; margin-top:8px; display:none;" />
+        <img id="coverPreview" 
+             style="
+               max-height: 140px;
+               max-width: 100%;
+               margin-top: 8px;
+               display: none;
+               object-fit: contain;
+               border-radius: 8px;
+               box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+             " />
       </div>
 
       <div class="form-block">
