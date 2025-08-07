@@ -11,7 +11,10 @@ import {
   saveComment,
   checkAndInsertLibraryBook,
   deleteImageFromStorage,
-  uploadCover
+  uploadCover,
+  searchBooks,
+  deleteCommentImage,
+  uploadCommentImage
 } from './api.js';
 
 // ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
@@ -296,8 +299,6 @@ await checkAndInsertLibraryBook(title, author, coverUrl);
 };
 
 // ✏️ Автозаполнение полей книги
-import { searchBooks } from './api.js';
-
 async function handleBookSearch(e) {
   const value = e.target.value.trim();
   const list = document.getElementById("suggestions");
@@ -462,8 +463,6 @@ window.deleteBook = async function(id) {
   if (!confirmDelete) return;
 
   // удаляем картинки из комментариев
-import { deleteCommentImage } from './api.js';
-
 if (book?.comment) {
   const images = (book.comment.match(/https?:\/\/[^\s)]+/g) || []).filter(url =>
     url.includes("/comments/")
@@ -639,4 +638,4 @@ await saveComment(bookId, userId, newComment);
 };
 
 // 📸 Загрузка изображения из комментария в Supabase Storage
-import { uploadCommentImage } from "./api.js";
+
