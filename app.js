@@ -1,7 +1,7 @@
 // 📁 app.js — Основная логика WebApp
 
 // 🛠 Импорт основных функций API и подключения к Supabase
-import { supabase, getBooks, addBook, uploadExportFile } from './api.js';
+import { getBooks, addBook, uploadExportFile, exportBooks } from './api.js';
 
 // ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
 Telegram.WebApp.ready();
