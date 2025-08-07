@@ -1,8 +1,12 @@
 // 📁 api.js — Подключение к Supabase
 export async function getBooks(userId) {
   const res = await fetch(`/api/getBooks?user_id=${userId}`);
-  const data = await res.json();
-  return data || [];
+  if (!res.ok) {
+    console.error("Ошибка запроса:", await res.text());
+    return [];
+  }
+
+  return await res.json();
 }
 
 export async function addBook(book) {
