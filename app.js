@@ -57,15 +57,11 @@ window.renderMainScreen = async function () {
       const format = option.getAttribute("data-format");
       document.getElementById("formatMenu").classList.add("hidden");
 
-      const { data, error } = await supabase
-        .from("user_books")
-        .select("title, author, status, rating, started_at, finished_at, added_at, comment")
-        .eq("user_id", userId);
-
-      if (error) {
-        alert("Ошибка при получении данных");
-        return;
-      }
+      const data = await exportBooks(userId);
+if (!data || !data.length) {
+  alert("Нет данных для экспорта");
+  return;
+}
 
       if (format === "csv") exportToCSV(data);
       if (format === "json") exportToJSON(data);
