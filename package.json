@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.39.6",
-    "busboy": "^1.6.0"
+    "busboy": "^1.6.0",
+    "formidable": "^3.5.0"
   }
 }
