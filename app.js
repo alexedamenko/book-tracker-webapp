@@ -511,7 +511,14 @@ async function uploadAndShare(content, filename, type) {
 
   if (url) {
     alert("✅ Файл готов к скачиванию");
-    window.open(url, "_blank");
+
+    // 📥 Программное скачивание
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   } else {
     alert("❌ Ошибка при экспорте файла");
   }
