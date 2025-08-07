@@ -1,7 +1,16 @@
 // 📁 app.js — Основная логика WebApp
 
 // 🛠 Импорт основных функций API и подключения к Supabase
-import { getBooks, addBook, uploadExportFile, exportBooks } from './api.js';
+import {
+  getBooks,
+  addBook,
+  uploadExportFile,
+  exportBooks,
+  updateBook,
+  deleteBook,
+  saveComment,
+  checkAndInsertLibraryBook
+} from './api.js';
 
 // ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
 Telegram.WebApp.ready();
@@ -126,7 +135,7 @@ window.showAddForm = function() {
   const container = document.getElementById("app");
   container.innerHTML = `
     <h2>➕ Добавление книги</h2>
-    <form class="add-book-form" onsubmit="submitAddForm(event)">
+    <form class="add-book-form" onsubmit="(event)">
       <div class="form-block">
         <label>Название книги</label>
         <input type="text" id="title" required autocomplete="off" />
@@ -517,11 +526,8 @@ window.deleteBook = async function(id) {
   }
 
   // удаляем запись из базы
-  const { error } = await supabase.from("user_books").delete().eq("id", id);
-  if (error) {
-    alert("❌ Ошибка при удалении");
-    return;
-  }
+await deleteBook(id);
+  
 alert("🗑 Книга удалена");
   await renderMainScreen();
 };
@@ -679,16 +685,7 @@ window.saveComment = async function(bookId) {
   }
 
   // сохраняем новый комментарий
-  const { error } = await supabase
-    .from("user_books")
-    .update({ comment: newComment })
-    .eq("id", bookId)
-    .eq("user_id", userId);
-
-  if (error) {
-    alert("Ошибка при сохранении");
-    return;
-  }
+await saveComment(bookId, userId, newComment);
 
   renderMainScreen();
 };
