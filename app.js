@@ -360,54 +360,85 @@ window.selectBook = function(title, author, coverUrl) {
   document.getElementById("suggestions").innerHTML = "";
 };
 
-// ✏️ Показ формы редактирования книги
 window.editBook = function(id) {
   const book = books.find(b => b.id === id);
   const container = document.getElementById("app");
 
   container.innerHTML = `
     <h2>✏️ Редактирование книги</h2>
-    <form id="editForm">
-      <input type="text" id="title" value="${book.title}" required />
-      <input type="text" id="author" value="${book.author}" required />
+    <form id="editForm" class="add-book-form">
 
-      <label>Обложка (выберите файл или вставьте ссылку):</label>
-      <input type="file" id="cover_file" accept="image/*" />
-      <input type="url" id="cover_url" value="${book.cover_url || ''}" />
-      <img id="coverPreview" src="${book.cover_url || ''}" 
-           style="max-height:100px; margin-top:5px; ${book.cover_url ? '' : 'display:none;'}" />
+      <div class="form-block">
+        <label>Название книги</label>
+        <input type="text" id="title" value="${book.title}" required />
+      </div>
 
-      <input type="date" id="added_at" value="${book.added_at || ""}" />
-      <input type="date" id="started_at" value="${book.started_at || ""}" />
-      <input type="date" id="finished_at" value="${book.finished_at || ""}" />
-      
-      <select id="status">
-        <option value="want_to_read" ${book.status === 'want_to_read' ? 'selected' : ''}>Хочу прочитать</option>
-        <option value="reading" ${book.status === 'reading' ? 'selected' : ''}>Читаю</option>
-        <option value="read" ${book.status === 'read' ? 'selected' : ''}>Прочитал</option>
-      </select>
+      <div class="form-block">
+        <label>Автор</label>
+        <input type="text" id="author" value="${book.author}" required />
+      </div>
 
-      <select id="rating">
-        <option value="">Без оценки</option>
-        ${[1,2,3,4,5].map(n => `<option value="${n}" ${book.rating === n ? 'selected' : ''}>⭐ ${n}</option>`).join("")}
-      </select>
+      <div class="form-block">
+        <label>Обложка</label>
+        <input type="file" id="cover_file" accept="image/*" />
+        <input type="url" id="cover_url" value="${book.cover_url || ''}" />
+        <img id="coverPreview" 
+             src="${book.cover_url || ''}" 
+             style="
+               max-height: 140px;
+               max-width: 100%;
+               margin-top: 8px;
+               ${book.cover_url ? '' : 'display:none;'}
+               object-fit: contain;
+               border-radius: 8px;
+               box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+             " />
+      </div>
 
-      <button type="submit">💾 Сохранить</button>
+      <div class="form-block">
+        <label>Статус</label>
+        <select id="status">
+          <option value="want_to_read" ${book.status === 'want_to_read' ? 'selected' : ''}>Хочу прочитать</option>
+          <option value="reading" ${book.status === 'reading' ? 'selected' : ''}>Читаю</option>
+          <option value="read" ${book.status === 'read' ? 'selected' : ''}>Прочитал</option>
+        </select>
+      </div>
+
+      <div class="form-block">
+        <label>Оценка</label>
+        <select id="rating">
+          <option value="">Без оценки</option>
+          ${[1,2,3,4,5].map(n => `<option value="${n}" ${book.rating === n ? 'selected' : ''}>⭐ ${n}</option>`).join("")}
+        </select>
+      </div>
+
+      <div class="form-block date-group">
+        <label>Дата добавления</label>
+        <input type="date" id="added_at" value="${book.added_at || ''}" />
+        <label>Дата начала</label>
+        <input type="date" id="started_at" value="${book.started_at || ''}" />
+        <label>Дата окончания</label>
+        <input type="date" id="finished_at" value="${book.finished_at || ''}" />
+      </div>
+
+      <div class="form-buttons">
+        <button type="submit" class="save-btn">💾 Сохранить</button>
+        <button type="button" class="back-btn" id="backBtn">← Назад</button>
+      </div>
     </form>
-    <button id="backBtn">← Назад</button>
   `;
 
-  // 🔹 Предпросмотр обложки при выборе файла
+  // 📷 Предпросмотр при выборе файла
   document.getElementById("cover_file").addEventListener("change", (e) => {
     const file = e.target.files[0];
+    const preview = document.getElementById("coverPreview");
     if (file) {
-      const preview = document.getElementById("coverPreview");
       preview.src = URL.createObjectURL(file);
       preview.style.display = "block";
     }
   });
 
-  // 🔹 Предпросмотр при вставке URL
+  // 📷 Предпросмотр при вводе URL
   document.getElementById("cover_url").addEventListener("input", (e) => {
     const url = e.target.value.trim();
     const preview = document.getElementById("coverPreview");
@@ -419,12 +450,13 @@ window.editBook = function(id) {
     }
   });
 
+  // Назад
   document.getElementById("backBtn").addEventListener("click", renderMainScreen);
 
+  // Сохранение
   document.getElementById("editForm").addEventListener("submit", async function(e) {
     e.preventDefault();
 
-    // Если выбрали файл — загружаем в Supabase
     let coverUrl = document.getElementById("cover_url").value.trim();
     const file = document.getElementById("cover_file").files[0];
     if (file) {
@@ -457,6 +489,7 @@ window.editBook = function(id) {
     }
   });
 };
+
 
 // 🗑 Удаление книги
 window.deleteBook = async function(id) {
