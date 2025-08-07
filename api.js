@@ -1,15 +1,5 @@
 // 📁 api.js — Подключение к Supabase
 export async function getBooks(userId) {
-  const res = await fetch(`/api/getBooks?user_id=${userId}`);
-  if (!res.ok) {
-    console.error("Ошибка запроса:", await res.text());
-    return [];
-  }
-
-  return await res.json();
-}
-
-export async function getBooks(userId) {
   const res = await fetch(`/api/handler?route=getBooks&user_id=${encodeURIComponent(userId)}`);
   if (!res.ok) {
     console.error("Ошибка при получении книг");
@@ -81,20 +71,20 @@ export async function uploadCommentImage(blob) {
 }
 
 export async function searchBooks(query) {
-  const res = await fetch("/api/searchBooks", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ query })
-  });
-
+  const res = await fetch(`/api/handler?route=searchBooks&query=${encodeURIComponent(query)}`);
   if (!res.ok) {
+    console.error("Ошибка при поиске книг");
     return [];
   }
-
-  const { results } = await res.json();
-  return results || [];
+  return await res.json();
+}
+export async function addBook(book) {
+  const res = await fetch('/api/handler?route=addBook', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(book)
+  });
+  if (!res.ok) console.error("Ошибка при добавлении книги");
 }
 
 export async function deleteImageFromStorage(bucket, fileName) {
