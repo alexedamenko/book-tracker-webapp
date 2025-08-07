@@ -633,20 +633,4 @@ await saveComment(bookId, userId, newComment);
 };
 
 // 📸 Загрузка изображения из комментария в Supabase Storage
-async function uploadImageToSupabase(blob) {
-  const fileName = `${crypto.randomUUID()}.${blob.type.split("/")[1]}`;
-  const { error } = await supabase.storage
-    .from("comments")
-    .upload(fileName, blob, { upsert: false });
-
-  if (error) {
-    alert("Ошибка загрузки изображения");
-    return "";
-  }
-
-  const { data } = supabase.storage
-    .from("comments")
-    .getPublicUrl(fileName);
-
-  return data.publicUrl;
-}
+import { uploadCommentImage } from "./api.js";
