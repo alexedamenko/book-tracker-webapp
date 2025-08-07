@@ -127,6 +127,20 @@ export async function uploadCover(file) {
   return url || "";
 }
 
+export async function deleteCommentImage(url) {
+  const res = await fetch("/api/deleteCommentImage", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ url })
+  });
+
+  if (!res.ok) {
+    console.error("Не удалось удалить картинку", url);
+  }
+}
+
 export async function uploadExportFile(filename, blob, contentType = "text/csv") {
   const formData = new FormData();
   formData.append("file", blob, filename);
