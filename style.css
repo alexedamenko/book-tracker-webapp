@@ -285,3 +285,43 @@ toastui-editor-popup {
 .suggestion-item:hover {
   background: #f0f0f0;
 }
+  .add-book-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-block label {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (min-width: 400px) {
+  .date-group {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+.form-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.save-btn,
+.back-btn {
+  flex: 1;
+}
+
