@@ -76,6 +76,20 @@ export async function uploadCommentImage(blob) {
   return url || "";
 }
 
+export async function deleteImageFromStorage(bucket, fileName) {
+  const res = await fetch("/api/deleteImage", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ bucket, fileName })
+  });
+
+  if (!res.ok) {
+    console.warn("Ошибка при удалении изображения");
+  }
+}
+
 export async function uploadExportFile(filename, blob, contentType = "text/csv") {
   const formData = new FormData();
   formData.append("file", blob, filename);
