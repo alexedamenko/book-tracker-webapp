@@ -23,6 +23,18 @@ export async function exportBooks(userId) {
   return await res.json();
 }
 
+export async function updateBook(id, fields) {
+  const res = await fetch("/api/updateBook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, ...fields }),
+  });
+
+  if (!res.ok) {
+    console.error("Ошибка при обновлении книги");
+  }
+}
+
 export async function uploadExportFile(filename, blob, contentType = "text/csv") {
   const formData = new FormData();
   formData.append("file", blob, filename);
