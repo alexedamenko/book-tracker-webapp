@@ -1,37 +1,35 @@
 // 📁 api.js — Подключение к Supabase
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-const supabaseUrl = 'https://sodehdbidjsroqevtglo.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvZGVoZGJpZGpzcm9xZXZ0Z2xvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3OTE0MTUsImV4cCI6MjA2OTM2NzQxNX0.mjcNOakxxDIscPdzjXhJoEy5z5J3XrdNa_RdcV28xXM';
-export const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function getBooks(userId) {
-  const { data, error } = await supabase
-    .from('user_books')
-    .select('*')
-    .eq('user_id', userId)
-    .order('added_at', { ascending: false });
-  if (error) console.error(error);
+  const res = await fetch(`/api/getBooks?user_id=${userId}`);
+  const data = await res.json();
   return data || [];
 }
 
 export async function addBook(book) {
-  const { error } = await supabase.from('user_books').insert([book]);
-  if (error) console.error(error);
+  const res = await fetch("/api/addBook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(book),
+  });
+  if (!res.ok) console.error("❌ Ошибка при добавлении книги");
 }
-export async function uploadExportFile(filename, content, contentType = "text/csv") {
-  const { data, error } = await supabase.storage
-    .from("exports")
-    .upload(filename, content, {
-      cacheControl: '3600',
-      upsert: true,
-      contentType
-    });
 
-  if (error) {
-    console.error("Ошибка при загрузке файла:", error);
+export async function uploadExportFile(filename, blob, contentType = "text/csv") {
+  const formData = new FormData();
+  formData.append("file", blob, filename);
+  formData.append("type", contentType);
+
+  const res = await fetch("/api/uploadExport", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    console.error("❌ Ошибка загрузки файла");
     return null;
   }
 
-  return supabase.storage.from("exports").getPublicUrl(filename).data.publicUrl;
+  const { url } = await res.json();
+  return url;
 }
+
