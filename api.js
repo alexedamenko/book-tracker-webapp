@@ -90,6 +90,26 @@ export async function deleteImageFromStorage(bucket, fileName) {
   }
 }
 
+export async function uploadCover(file) {
+  if (!file) return "";
+
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+
+  const res = await fetch("/api/uploadCover", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    alert("❌ Ошибка загрузки обложки");
+    return "";
+  }
+
+  const { url } = await res.json();
+  return url || "";
+}
+
 export async function uploadExportFile(filename, blob, contentType = "text/csv") {
   const formData = new FormData();
   formData.append("file", blob, filename);
