@@ -10,7 +10,8 @@ import {
   deleteBook,
   saveComment,
   checkAndInsertLibraryBook,
-  deleteImageFromStorage
+  deleteImageFromStorage,
+  uploadCover
 } from './api.js';
 
 // ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
@@ -231,32 +232,6 @@ window.showAddForm = function() {
   }
 });
 };
-
-
-// 📷 Загрузка обложки в Supabase
-export async function uploadCover(file) {
-  if (!file) return "";
-
-  const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
-  const fileName = `${crypto.randomUUID()}.${ext}`;
-
-  const { error } = await supabase.storage // УДАЛИТЬ!
-    .from("covers")
-    .upload(fileName, file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: file.type // 🔹 Обязательно указываем тип файла
-    });
-
-  if (error) {
-    console.error("Ошибка загрузки обложки:", error);
-    alert("Ошибка загрузки обложки");
-    return "";
-  }
-
-  const { data } = supabase.storage.from("covers").getPublicUrl(fileName);
-  return data?.publicUrl || "";
-}
 
 // ✅ Обработка добавления новой книги
 window.submitAddForm = async function (e) {
