@@ -9,13 +9,13 @@ export async function getBooks(userId) {
   return await res.json();
 }
 
-export async function addBook(book) {
-  const res = await fetch("/api/addBook", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(book),
-  });
-  if (!res.ok) console.error("❌ Ошибка при добавлении книги");
+export async function getBooks(userId) {
+  const res = await fetch(`/api/handler?route=getBooks&user_id=${encodeURIComponent(userId)}`);
+  if (!res.ok) {
+    console.error("Ошибка при получении книг");
+    return [];
+  }
+  return await res.json();
 }
 
 export async function exportBooks(userId) {
