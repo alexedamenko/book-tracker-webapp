@@ -48,4 +48,20 @@ export default async function handler(req, res) {
     const { error } = await supabase.storage
       .from("exports")
       .upload(fileName, result.file, {
-        ca
+        cacheControl: "3600",
+        upsert: true,
+        contentType: result.mimetype || "text/csv",
+      });
+
+    if (error) {
+      console.error("Ошибка загрузки в Supabase:", error);
+      return res.status(500).json({ error: "Ошибка загрузки файла" });
+    }
+
+    const { data } = supabase.storage.from("exports").getPublicUrl(fileName);
+    return res.status(200).json({ url: data?.publicUrl });
+  } catch (err) {
+    console.error("Сбой сервера при загрузке:", err);
+    return res.status(500).json({ error: "Сбой сервера" });
+  }
+}
