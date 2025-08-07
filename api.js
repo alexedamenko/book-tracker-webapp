@@ -35,6 +35,29 @@ export async function updateBook(id, fields) {
   }
 }
 
+export async function saveComment(bookId, userId, comment) {
+  await fetch("/api/saveComment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookId, userId, comment }),
+  });
+}
+export async function checkAndInsertLibraryBook(title, author, cover_url) {
+  await fetch("/api/checkAndInsertLibraryBook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, author, cover_url }),
+  });
+}
+
+export async function deleteBook(id) {
+  await fetch("/api/deleteBook", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+}
+
 export async function uploadExportFile(filename, blob, contentType = "text/csv") {
   const formData = new FormData();
   formData.append("file", blob, filename);
