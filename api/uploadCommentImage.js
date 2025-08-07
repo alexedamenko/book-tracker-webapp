@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
   try {
     const formData = await new Promise((resolve, reject) => {
-      const busboy = require('busboy')({ headers: req.headers });
+      const busboy = Busboy({ headers: req.headers });
       const result = {};
 
       busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
