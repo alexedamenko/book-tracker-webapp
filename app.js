@@ -129,36 +129,53 @@ function renderStars(rating = 0) {
 window.showAddForm = function() {
   const container = document.getElementById("app");
   container.innerHTML = `
-    <h2>➕ Добавление книги</h2>
-    <form class="add-book-form" onsubmit="submitAddForm(event)">
-      <input type="text" id="title" placeholder="Название книги" required autocomplete="off" />
-      <div id="suggestions" class="suggestions-list"></div>
+      <h2>➕ Добавление книги</h2>
+<form class="add-book-form" onsubmit="submitAddForm(event)">
+  <div class="form-block">
+    <label>Название книги</label>
+    <input type="text" id="title" required autocomplete="off" />
+    <div id="suggestions" class="suggestions-list"></div>
+  </div>
+<div class="form-block">
+    <label>Автор</label>
+    <input type="text" id="author" required />
+  </div>
 
-      <input type="text" id="author" placeholder="Автор" required />
+  <div class="form-block">
+    <label>Обложка</label>
+    <input type="file" id="cover_file" accept="image/*" />
+    <input type="url" id="cover_url" placeholder="Ссылка на обложку (необязательно)" />
+    <img id="coverPreview" style="max-height:120px; margin-top:8px; display:none;" />
+  </div>
 
-      <label>Обложка (выберите файл или вставьте ссылку):</label>
-      <input type="file" id="cover_file" accept="image/*" />
-      <input type="url" id="cover_url" placeholder="Ссылка на обложку (необязательно)" />
-      <img id="coverPreview" style="max-height:100px; margin-top:5px; display:none;" />
-
-      <select id="status">
-        <option value="want_to_read">Хочу прочитать</option>
-        <option value="reading">Читаю</option>
-        <option value="read">Прочитал</option>
-      </select>
-
+  <div class="form-block">
+    <label>Статус</label>
+    <select id="status">
+      <option value="want_to_read">Хочу прочитать</option>
+      <option value="reading">Читаю</option>
+      <option value="read">Прочитал</option>
+    </select>
+  </div>
+<div class="form-block">
+    <label>Оценка</label>
       <select id="rating">
         <option value="">Без оценки</option>
         ${[1,2,3,4,5].map(n => `<option value="${n}">⭐ ${n}</option>`).join("")}
       </select>
+</div>
 
-      <input type="date" id="started_at" placeholder="Дата начала (необязательно)" />
-      <input type="date" id="finished_at" placeholder="Дата окончания (необязательно)" />
+div class="form-block date-group">
+    <label>Дата начала</label>
+    <input type="date" id="started_at" />
+    <label>Дата окончания</label>
+    <input type="date" id="finished_at" />
+  </div>
 
-      <button type="submit" class="save-btn">💾 Сохранить</button>
-    </form>
-
-    <button class="back-btn" onclick="renderMainScreen()">← Назад</button>
+  <div class="form-buttons">
+    <button type="submit" class="save-btn">💾 Сохранить</button>
+    <button type="button" class="back-btn" onclick="renderMainScreen()">← Назад</button>
+  </div>
+</form>
   `;
 
   // 🔍 Автопоиск книг
