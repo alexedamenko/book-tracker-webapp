@@ -137,7 +137,7 @@ window.showAddForm = function() {
   const container = document.getElementById("app");
   container.innerHTML = `
     <h2>➕ Добавление книги</h2>
-    <form class="add-book-form" onsubmit="(event)">
+    <form class="add-book-form" onsubmit="submitAddForm(event)">
       <div class="form-block">
         <label>Название книги</label>
         <input type="text" id="title" required autocomplete="off" />
