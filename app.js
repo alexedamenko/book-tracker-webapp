@@ -179,7 +179,6 @@ window.showAddForm = function() {
       </div>
     </form>
   `;
-}
 
   // 🔍 Автопоиск книг
   document.getElementById("title").addEventListener("input", handleBookSearch);
