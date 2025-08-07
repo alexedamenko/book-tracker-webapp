@@ -23,13 +23,21 @@ export default async function handler(req, res) {
     const result = {};
 
     const formData = await new Promise((resolve, reject) => {
-      busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+      busboy.on('file', (fieldname, file, fileInfo) => {
         const buffers = [];
+
         file.on('data', data => buffers.push(data));
         file.on('end', () => {
           result.file = Buffer.concat(buffers);
-          result.filename = filename;
-          result.mimetype = mimetype;
+
+          // 🔥 Поддержка новых и старых версий busboy
+          if (typeof fileInfo === 'string') {
+            result.filename = fileInfo;
+            result.mimetype = "application/octet-stream";
+          } else {
+            result.filename = fileInfo?.filename || `export-${Date.now()}.csv`;
+            result.mimetype = fileInfo?.mimeType || "text/csv";
+          }
         });
       });
 
@@ -37,20 +45,17 @@ export default async function handler(req, res) {
       req.pipe(busboy);
     });
 
-    // 🛡 Защита от невалидных данных
     if (!result.file || typeof result.filename !== 'string') {
       console.error("❌ Некорректный файл или имя:", result.filename);
       return res.status(400).json({ error: 'Файл не передан или имя некорректно' });
     }
 
-    const fileName = result.filename || `export-${Date.now()}.csv`;
-
     const { error } = await supabase.storage
       .from("exports")
-      .upload(fileName, result.file, {
+      .upload(result.filename, result.file, {
         cacheControl: "3600",
         upsert: true,
-        contentType: result.mimetype || "text/csv",
+        contentType: result.mimetype,
       });
 
     if (error) {
@@ -58,7 +63,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Ошибка загрузки файла" });
     }
 
-    const { data } = supabase.storage.from("exports").getPublicUrl(fileName);
+    const { data } = supabase.storage.from("exports").getPublicUrl(result.filename);
     return res.status(200).json({ url: data?.publicUrl });
   } catch (err) {
     console.error("Сбой сервера при загрузке:", err);
