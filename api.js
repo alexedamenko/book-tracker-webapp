@@ -58,6 +58,24 @@ export async function deleteBook(id) {
   });
 }
 
+export async function uploadCommentImage(blob) {
+  const formData = new FormData();
+  formData.append("file", blob, "comment.png");
+
+  const res = await fetch("/api/uploadCommentImage", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    alert("Ошибка загрузки изображения");
+    return "";
+  }
+
+  const { url } = await res.json();
+  return url || "";
+}
+
 export async function uploadExportFile(filename, blob, contentType = "text/csv") {
   const formData = new FormData();
   formData.append("file", blob, filename);
