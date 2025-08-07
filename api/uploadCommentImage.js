@@ -1,6 +1,6 @@
-// /api/uploadCommentImage.js
 
 import { createClient } from '@supabase/supabase-js';
+import Busboy from 'busboy';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
