@@ -1,7 +1,4 @@
-import fs from "fs";
-import { createReadStream } from "fs";
-import { IncomingForm } from "formidable";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
 
 export const config = {
   api: {
@@ -15,46 +12,54 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Метод не разрешён' });
   }
 
-  const form = new IncomingForm({ multiples: false, keepExtensions: true });
+  try {
+    const Busboy = (await import('busboy')).default;
+    const busboy = Busboy({ headers: req.headers });
 
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      console.error("Ошибка разбора формы:", err);
-      return res.status(500).json({ error: "Ошибка формы" });
-    }
+    const result = {};
 
-    const file = files.file;
-    if (!file || !file.filepath) {
-      return res.status(400).json({ error: "Файл не найден" });
-    }
-
-    const fileStream = createReadStream(file.filepath);
-    const filename = file.originalFilename || `export-${Date.now()}.csv`;
-    const mimetype = file.mimetype || "text/csv";
-
-    try {
-      const { error } = await supabase.storage
-        .from("exports")
-        .upload(filename, fileStream, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: mimetype,
+    const formData = await new Promise((resolve, reject) => {
+      busboy.on('file', (fieldname, file, filename, encoding, mimetype) => {
+        const buffers = [];
+        file.on('data', (data) => buffers.push(data));
+        file.on('end', () => {
+          result.file = Buffer.concat(buffers);
+          result.filename = filename;
+          result.mimetype = mimetype;
         });
+      });
 
-      if (error) {
-        console.error("Ошибка загрузки в Supabase:", error);
-        return res.status(500).json({ error: "Ошибка загрузки" });
-      }
+      busboy.on('finish', () => resolve(result));
+      req.pipe(busboy);
+    });
 
-      const { data } = supabase.storage.from("exports").getPublicUrl(filename);
-      return res.status(200).json({ url: data.publicUrl });
-    } catch (e) {
-      console.error("Ошибка сервера:", e);
-      return res.status(500).json({ error: "Сбой сервера" });
+    if (!result.file || !result.filename) {
+      return res.status(400).json({ error: 'Файл не передан' });
     }
-  });
+
+    const fileName = result.filename || `export-${Date.now()}.csv`;
+
+    const { error } = await supabase.storage
+      .from("exports")
+      .upload(fileName, result.file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: result.mimetype || "text/csv",
+      });
+
+    if (error) {
+      console.error("Ошибка загрузки в Supabase:", error);
+      return res.status(500).json({ error: "Ошибка загрузки" });
+    }
+
+    const { data } = supabase.storage.from("exports").getPublicUrl(fileName);
+    return res.status(200).json({ url: data.publicUrl });
+  } catch (err) {
+    console.error("Сбой сервера при загрузке:", err);
+    return res.status(500).json({ error: "Сбой сервера" });
+  }
 }
