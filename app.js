@@ -535,104 +535,166 @@ window.showStats = function () {
 
 
 
-// 🔍 Поиск — ЛОКАЛЬНО по уже загруженным книгам
+// 🔍 Вкладка "Поиск" — только строка + автодополнение по локальным книгам
 window.showSearch = async function () {
   const container = document.getElementById("app");
 
-  // ⚠️ ВАЖНО: не объявляй тут let books/currentTab — используем глобальные
+  // Загружаем книги 1 раз, если ещё не загружены
   if (!window.books || window.books.length === 0) {
-    window.books = await getBooks(userId); // твоя функция загрузки без поиска
+    window.books = await getBooks(userId);
   }
 
   container.innerHTML = `
     <h2>🔍 Поиск</h2>
 
-    <div style="display:flex; gap:8px; margin-bottom:12px;">
-      <input id="searchInput" placeholder="Поиск по книге/автору..." autocomplete="off" 
-             style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;" />
-      <button id="doSearchBtn">Искать</button>
+    <div id="searchWrap" style="position:relative; margin-bottom:12px;">
+      <input id="searchInput" placeholder="Начни вводить название или автора…" autocomplete="off"
+        style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid #ccc; outline:none;" />
+
+      <div id="typeahead"
+        style="position:absolute; z-index:1000; top:100%; left:0; right:0;
+               background:#fff; border:1px solid #ddd; border-top:none; border-radius:0 0 8px 8px;
+               max-height:280px; overflow-y:auto; display:none; box-shadow:0 8px 24px rgba(0,0,0,.06);">
+      </div>
     </div>
 
-    <div id="searchResults"></div>
-
-    <div class="footer-buttons" style="margin-top:12px;">
+    <div class="footer-buttons">
       <button onclick="renderMainScreen()">← Назад</button>
     </div>
   `;
 
   const input = document.getElementById("searchInput");
-  const btn = document.getElementById("doSearchBtn");
-  const resultsEl = document.getElementById("searchResults");
+  const dd    = document.getElementById("typeahead");
 
-  // --- utils ---
-  function norm(s) {
-    return (s ?? "").toString().toLowerCase().replaceAll("ё", "е").trim();
-  }
-  function debounce(fn, ms = 250) {
-    let t; 
-    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-  }
-  function escapeHtml(s = "") {
-    return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  }
+  // ---------- utils ----------
+  const norm = (s) => (s ?? "").toString().toLowerCase().replaceAll("ё","е").trim();
+  const esc  = (s="") => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   function highlight(text, q) {
-    const base = escapeHtml(text || "");
+    const base = esc(text || "");
     const terms = norm(q).split(/\s+/).filter(Boolean);
     if (!terms.length) return base;
-    // экранируем спецсимволы RegExp
-    const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join("|");
+    const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join("|");
     return base.replace(new RegExp(`(${pattern})`, "gi"), "<mark>$1</mark>");
   }
 
-  // поиск по нескольким полям, AND-логика
-  function searchLocal(list, q) {
+  // Поиск по title+author(+category/note/tags) c AND-логикой; топ-10
+  function searchLocal(q) {
     const terms = norm(q).split(/\s+/).filter(Boolean);
-    if (terms.length === 0) return list;
-    return list.filter(b => {
-      const haystack = [
-        b.title, b.author, b.category, b.note,
-        Array.isArray(b.tags) ? b.tags.join(" ") : ""
-      ].map(norm).join("  ");
-      return terms.every(t => haystack.includes(t));
+    if (!terms.length) return [];
+
+    return window.books
+      .map(b => {
+        const hay = norm([b.title, b.author, b.category, b.note, Array.isArray(b.tags)? b.tags.join(" "):""].join("  "));
+        const ok = terms.every(t => hay.includes(t));
+        if (!ok) return null;
+
+        // простая релевантность: раньше вхождение в title — выше
+        const idxTitle  = norm(b.title || "").indexOf(norm(q));
+        const idxAuthor = norm(b.author || "").indexOf(norm(q));
+        const score = (idxTitle === -1 ? 1000 : idxTitle) + (idxAuthor === -1 ? 500 : idxAuthor);
+        return { b, score };
+      })
+      .filter(Boolean)
+      .sort((a,b) => a.score - b.score)
+      .slice(0, 10)
+      .map(x => x.b);
+  }
+
+  // ---------- dropdown render + поведение ----------
+  let suggestions = [];
+  let active = -1; // индекс подсвеченного элемента
+
+  function hideDD() { dd.style.display = "none"; active = -1; }
+  function showDD() { dd.style.display = suggestions.length ? "block" : "none"; }
+
+  function renderDD(q) {
+    if (!suggestions.length) {
+      dd.innerHTML = `<div style="padding:10px 12px; color:#777;">Ничего не найдено</div>`;
+      dd.style.display = "block";
+      return;
+    }
+    dd.innerHTML = suggestions.map((b, i) => `
+      <div class="ta-item" data-id="${b.id}"
+           style="display:flex; gap:10px; align-items:center; padding:10px 12px; cursor:pointer;
+                  ${i===active ? 'background:#f5f7ff;' : ''}">
+        ${b.cover_url ? `<img src="${esc(b.cover_url)}" alt="" style="width:32px;height:48px;object-fit:cover;border-radius:4px;border:1px solid #eee;">` : ''}
+        <div style="min-width:0;">
+          <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${highlight(b.title, q)}
+          </div>
+          <div style="font-size:12px; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${highlight(b.author || "", q)}
+          </div>
+        </div>
+      </div>
+    `).join("");
+
+    // клики по пунктам
+    dd.querySelectorAll(".ta-item").forEach((el, i) => {
+      el.addEventListener("mouseenter", () => { active = i; paintActive(); });
+      el.addEventListener("mousedown", (e) => { // mousedown, чтобы не потерять фокус до click
+        e.preventDefault();
+        const id = el.getAttribute("data-id");
+        if (typeof openBook === "function") openBook(id);
+      });
+    });
+
+    showDD();
+  }
+
+  function paintActive() {
+    [...dd.children].forEach((el, i) => {
+      el.style.background = (i===active) ? "#f5f7ff" : "";
     });
   }
 
-  function renderCardHighlighted(b, q) {
-    return `
-      <div class="book-card" style="padding:10px;border:1px solid #eee;border-radius:8px;margin-bottom:8px;cursor:pointer"
-           onclick="openBook && openBook('${b.id}')">
-        <div class="title" style="font-weight:600">${highlight(b.title, q)}</div>
-        <div class="author" style="opacity:0.8">${highlight(b.author || "", q)}</div>
-        ${b.category ? `<div class="meta" style="font-size:12px;opacity:0.7">#${highlight(b.category, q)}</div>` : ""}
-      </div>
-    `;
-  }
-
-  function renderResults(list, q) {
-    resultsEl.innerHTML = list.length
-      ? list.map(b => renderCardHighlighted(b, q)).join("")
-      : `<div style="opacity:.7">Ничего не найдено</div>`;
-  }
-
-  function run() {
-    const q = input.value.trim();
-    // 🔁 Ищем по всем книгам. Если нужно учитывать текущую вкладку:
-    // const base = window.books.filter(b => b.status === window.currentTab);
-    const base = window.books;
-    const list = q ? searchLocal(base, q) : base;
-    renderResults(list, q);
-  }
-
-  // события
-  btn.addEventListener("click", run);
-  input.addEventListener("input", debounce(run, 300));
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") run();
-    if (e.key === "Escape") { input.value = ""; run(); }
+  const debouncedSearch = (fn => {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), 180); };
+  })(q => {
+    if (q.length < 2) { hideDD(); return; }
+    suggestions = searchLocal(q);
+    active = suggestions.length ? 0 : -1;
+    renderDD(q);
+    paintActive();
   });
 
-  // первый рендер
-  run();
+  // ---------- handlers ----------
+  input.addEventListener("input", (e) => debouncedSearch(e.target.value));
+  input.addEventListener("focus", () => {
+    if (input.value.trim().length >= 2) { suggestions = searchLocal(input.value); renderDD(input.value); paintActive(); }
+  });
+  input.addEventListener("keydown", (e) => {
+    const q = input.value.trim();
+    if (e.key === "ArrowDown") {
+      if (!suggestions.length) return;
+      e.preventDefault();
+      active = (active + 1) % suggestions.length; paintActive();
+      dd.children[active]?.scrollIntoView({ block: "nearest" });
+    }
+    if (e.key === "ArrowUp") {
+      if (!suggestions.length) return;
+      e.preventDefault();
+      active = (active - 1 + suggestions.length) % suggestions.length; paintActive();
+      dd.children[active]?.scrollIntoView({ block: "nearest" });
+    }
+    if (e.key === "Enter") {
+      if (active >= 0 && suggestions[active]) {
+        e.preventDefault();
+        const id = suggestions[active].id;
+        if (typeof openBook === "function") openBook(id);
+      }
+    }
+    if (e.key === "Escape") {
+      input.value = "";
+      hideDD();
+    }
+  });
+
+  // клик вне — закрыть список
+  document.addEventListener("click", (e) => {
+    if (!document.getElementById("searchWrap")) return; // экран сменили
+    if (!document.getElementById("searchWrap").contains(e.target)) hideDD();
+  }, { capture: true });
 };
 
 
