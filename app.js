@@ -141,32 +141,23 @@ function renderStars(rating = 0) {
 
 // 📖 Просмотр карточки книги
 window.openBook = function (id) {
-  const list = (window.books && window.books.length ? window.books : books) || [];
-  const book = list.find(b => String(b.id) === String(id));
+  const book = books.find(b => String(b.id) === String(id));
   if (!book) { alert("Книга не найдена"); return; }
 
   const container = document.getElementById("app");
   container.innerHTML = `
-    <h2>📖 Карточка книги</h2>
-    <div class="book-view" style="display:flex; gap:16px; align-items:flex-start;">
-      ${book.cover_url ? `<img src="${book.cover_url}" alt="" style="width:96px;height:144px;object-fit:cover;border-radius:8px;border:1px solid #eee">` : ""}
-      <div>
-        <div style="font-weight:700; font-size:18px; margin-bottom:4px;">${book.title || "Без названия"}</div>
-        <div style="opacity:.8; margin-bottom:8px;">${book.author || ""}</div>
-        ${book.rating ? `<div style="margin-bottom:6px;">${"★".repeat(book.rating)}${"☆".repeat(5-book.rating)}</div>` : ""}
-        ${book.started_at ? `<div>📖 Начал: ${book.started_at}</div>` : ""}
-        ${book.finished_at ? `<div>🏁 Закончил: ${book.finished_at}</div>` : ""}
-        <div style="margin-top:8px; opacity:.8;">Статус: ${book.status}</div>
-      </div>
+    <div id="book-list">
+      ${renderBookCard(book)}
     </div>
 
-    <div class="footer-buttons" style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap;">
-      <button onclick="editBook('${book.id}')">✏️ Редактировать</button>
-      <button onclick="openComment('${book.id}')">💬 Заметки</button>
+    <div class="footer-buttons" style="margin-top: 12px;">
       <button onclick="renderMainScreen()">← Назад</button>
     </div>
   `;
+  // чтобы после перехода всё было видно
+  window.scrollTo({ top: 0, behavior: "instant" });
 };
+
 
 
 // ➕ Показ формы добавления книги
