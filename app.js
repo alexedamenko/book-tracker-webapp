@@ -530,144 +530,113 @@ window.showStats = function () {
     </div>
   `;
 };
-// 📊 Простейшая статистика по месяцам (сколько книг завершено в месяц)
-window.showStats = function () {
+
+
+
+
+
+// 🔍 Поиск — ЛОКАЛЬНО по уже загруженным книгам
+window.showSearch = async function () {
   const container = document.getElementById("app");
 
-  // Берём из уже загруженного массива books только завершённые
-  const finished = books
-    .filter(b => b.finished_at)
-    .map(b => b.finished_at.slice(0, 7)); // 'YYYY-MM'
-
-  // Группировка: { '2025-01': 3, ... }
-  const byMonth = finished.reduce((acc, ym) => {
-    acc[ym] = (acc[ym] || 0) + 1;
-    return acc;
-  }, {});
-
-  // Превратим в массив и отсортируем по дате
-  const rows = Object.entries(byMonth).sort((a, b) => a[0].localeCompare(b[0]));
-
-  // Максимум для «баров»
-  const max = rows.length ? Math.max(...rows.map(([, n]) => n)) : 0;
+  // ⚠️ ВАЖНО: не объявляй тут let books/currentTab — используем глобальные
+  if (!window.books || window.books.length === 0) {
+    window.books = await getBooks(userId); // твоя функция загрузки без поиска
+  }
 
   container.innerHTML = `
-    <h2>📊 Статистика чтения</h2>
-    ${rows.length ? `
-      <div style="display:flex; flex-direction:column; gap:8px;">
-        ${rows.map(([ym, n]) => {
-          const width = max ? Math.round((n / max) * 100) : 0;
-          return `
-            <div style="display:flex; align-items:center; gap:8px;">
-              <div style="width:90px; font-family:monospace;">${ym}</div>
-              <div style="flex:1; background:#eee; border-radius:6px; height:12px; overflow:hidden;">
-                <div style="width:${width}%; height:100%; background:#007aff;"></div>
-              </div>
-              <div style="width:28px; text-align:right;">${n}</div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    ` : `<p>Пока нет завершённых книг — нечего показать.</p>`}
-
-    <div class="footer-buttons">
-      <button onclick="renderMainScreen()">← Назад</button>
-    </div>
-  `;
-};
-// 🔍 Поиск и «быстрое добавление» из результатов
-window.showSearch = function () {
-  const container = document.getElementById("app");
-
-  container.innerHTML = `
-    <h2>🔍 Поиск / рекомендации</h2>
+    <h2>🔍 Поиск</h2>
 
     <div style="display:flex; gap:8px; margin-bottom:12px;">
-      <input id="searchInput" type="text" placeholder="Название или автор" 
+      <input id="searchInput" placeholder="Поиск по книге/автору..." autocomplete="off" 
              style="flex:1; padding:10px; border-radius:8px; border:1px solid #ccc;" />
       <button id="doSearchBtn">Искать</button>
     </div>
 
     <div id="searchResults"></div>
 
-    <div class="footer-buttons">
+    <div class="footer-buttons" style="margin-top:12px;">
       <button onclick="renderMainScreen()">← Назад</button>
     </div>
   `;
 
   const input = document.getElementById("searchInput");
   const btn = document.getElementById("doSearchBtn");
-  const resultsBox = document.getElementById("searchResults");
+  const resultsEl = document.getElementById("searchResults");
 
-  async function runSearch() {
-    const q = input.value.trim();
-    if (q.length < 2) {
-      resultsBox.innerHTML = `<p>Введите минимум 2 символа.</p>`;
-      return;
-    }
-    resultsBox.innerHTML = `<p>Ищу…</p>`;
-    try {
-      const list = await searchBooks(q); // уже есть в api.js
-      if (!list || !list.length) {
-        resultsBox.innerHTML = `<p>Ничего не найдено.</p>`;
-        return;
-      }
-
-      resultsBox.innerHTML = list.map(item => `
-        <div class="book-card" style="align-items:flex-start;">
-          <img src="${item.cover_url || ''}" alt="${item.title}" 
-               onerror="this.style.display='none';" />
-          <div class="info">
-            <div class="main-block">
-              <b class="book-title">${item.title}</b>
-              <i class="book-author">${item.author || ''}</i>
-            </div>
-            <div class="card-actions" style="margin-top:8px;">
-              <button onclick="quickAddFromSearch(${JSON.stringify(item).replace(/"/g,'&quot;')})">
-                + Добавить
-              </button>
-            </div>
-          </div>
-        </div>
-      `).join("");
-
-    } catch (e) {
-      console.error(e);
-      resultsBox.innerHTML = `<p>Ошибка поиска. Попробуйте ещё раз.</p>`;
-    }
+  // --- utils ---
+  function norm(s) {
+    return (s ?? "").toString().toLowerCase().replaceAll("ё", "е").trim();
+  }
+  function debounce(fn, ms = 250) {
+    let t; 
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+  function escapeHtml(s = "") {
+    return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function highlight(text, q) {
+    const base = escapeHtml(text || "");
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    if (!terms.length) return base;
+    // экранируем спецсимволы RegExp
+    const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join("|");
+    return base.replace(new RegExp(`(${pattern})`, "gi"), "<mark>$1</mark>");
   }
 
-  btn.addEventListener("click", runSearch);
+  // поиск по нескольким полям, AND-логика
+  function searchLocal(list, q) {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return list;
+    return list.filter(b => {
+      const haystack = [
+        b.title, b.author, b.category, b.note,
+        Array.isArray(b.tags) ? b.tags.join(" ") : ""
+      ].map(norm).join("  ");
+      return terms.every(t => haystack.includes(t));
+    });
+  }
+
+  function renderCardHighlighted(b, q) {
+    return `
+      <div class="book-card" style="padding:10px;border:1px solid #eee;border-radius:8px;margin-bottom:8px;cursor:pointer"
+           onclick="openBook && openBook('${b.id}')">
+        <div class="title" style="font-weight:600">${highlight(b.title, q)}</div>
+        <div class="author" style="opacity:0.8">${highlight(b.author || "", q)}</div>
+        ${b.category ? `<div class="meta" style="font-size:12px;opacity:0.7">#${highlight(b.category, q)}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function renderResults(list, q) {
+    resultsEl.innerHTML = list.length
+      ? list.map(b => renderCardHighlighted(b, q)).join("")
+      : `<div style="opacity:.7">Ничего не найдено</div>`;
+  }
+
+  function run() {
+    const q = input.value.trim();
+    // 🔁 Ищем по всем книгам. Если нужно учитывать текущую вкладку:
+    // const base = window.books.filter(b => b.status === window.currentTab);
+    const base = window.books;
+    const list = q ? searchLocal(base, q) : base;
+    renderResults(list, q);
+  }
+
+  // события
+  btn.addEventListener("click", run);
+  input.addEventListener("input", debounce(run, 300));
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") runSearch();
+    if (e.key === "Enter") run();
+    if (e.key === "Escape") { input.value = ""; run(); }
   });
+
+  // первый рендер
+  run();
 };
 
-// Быстрое добавление найденной книги в «Хочу прочитать»
-window.quickAddFromSearch = async function (item) {
-  const tgUser = Telegram.WebApp.initDataUnsafe?.user || {};
-  const book = {
-    id: crypto.randomUUID(),
-    user_id: Telegram.WebApp.initDataUnsafe.user.id.toString(),
-    username: tgUser?.username || "",
-    user_first_name: tgUser?.first_name || "",
-    title: (item.title || "").trim(),
-    author: (item.author || "").trim(),
-    cover_url: item.cover_url || "",
-    status: "want_to_read",
-    rating: null,
-    added_at: new Date().toISOString().split("T")[0],
-    started_at: null,
-    finished_at: null
-  };
 
-  // фиксируем книгу в «библиотеке» (как у тебя делается при ручном добавлении)
-  await checkAndInsertLibraryBook(book.title, book.author, book.cover_url);
-
-  await addBook(book);
-  currentTab = "want_to_read";
-  renderMainScreen();
-};
+  
 
 
 
