@@ -51,7 +51,7 @@ window.renderMainScreen = async function () {
     <button onclick="showAddForm()">+ Добавить книгу</button>
 
     <div id="book-list">
-      ${filtered.length > 0 ? filtered.map(renderBookCard).join("") : "<p>📭 Нет книг в этой категории</p>"}
+      ${filtered.length > 0 ? filtered.map().join("") : "<p>📭 Нет книг в этой категории</p>"}
     </div>
 
     <div class="footer-buttons">
@@ -109,7 +109,7 @@ window.closeZoom = function () {
 // 🧩 Отрисовка карточки книги (обложка, название, рейтинг, даты и заметка)
 function renderBookCard(book) {
    return `
-    <div class="book-card">
+    <div class="book-card" data-book-id="${b.id}"> // изменения 09/08/25
       <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
       
       <div class="info">
@@ -141,6 +141,7 @@ function renderStars(rating = 0) {
 
 // 📖 Просмотр карточки книги
 window.openBook = function (id) {
+  window.lastOpenedBookId = id; // изменения 09/08/25
   const book = books.find(b => String(b.id) === String(id));
   if (!book) { alert("Книга не найдена"); return; }
 
@@ -151,7 +152,7 @@ window.openBook = function (id) {
     </div>
 
     <div class="footer-buttons" style="margin-top: 12px;">
-      <button onclick="renderMainScreen()">← Назад</button>
+      <button onclick="focusBookInList('${book.id}')">← Назад</button>// изменения 09/08/25
     </div>
   `;
   // чтобы после перехода всё было видно
@@ -476,7 +477,7 @@ window.editBook = function(id) {
     };
 
     await updateBook(id, updated);
-renderMainScreen();
+await focusBookInList(book.id || window.lastOpenedBookId); //изменено 09/08/25
   });
 };
 
@@ -719,7 +720,30 @@ window.showSearch = async function () {
   }, { capture: true });
 };
 
+window.lastOpenedBookId = null;
 
+window.focusBookInList = async function (bookId) {
+  // обновим книги, вдруг статус изменился при редактировании
+  books = await getBooks(userId);
+
+  const book = books.find(b => String(b.id) === String(bookId));
+  if (!book) { await renderMainScreen(); return; }
+
+  // перейти на «правильную» вкладку (по статусу книги)
+  window.currentTab = book.status || window.currentTab;
+
+  // перерисовать список
+  await renderMainScreen();
+
+  // дождаться DOM и подсветить
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const el = document.querySelector(`[data-book-id="${bookId}"]`);
+  if (el) {
+    el.classList.add('book-focus');
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    setTimeout(() => el.classList.remove('book-focus'), 1600);
+  }
+};
   
 
 
