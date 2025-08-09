@@ -1,10 +1,7 @@
+// /api/uploadExport.js
 import { createClient } from '@supabase/supabase-js';
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const config = { api: { bodyParser: false } };
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -12,61 +9,66 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Метод не разрешён' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Метод не разрешён' });
 
   try {
     const Busboy = (await import('busboy')).default;
     const busboy = Busboy({ headers: req.headers });
 
-    const result = {};
+    const result = { fields: {}, file: null, filename: null, mimetype: null };
 
-    const formData = await new Promise((resolve, reject) => {
-      busboy.on('file', (fieldname, file, fileInfo) => {
-        const buffers = [];
+    busboy.on('field', (name, val) => { result.fields[name] = String(val || ''); });
 
-        file.on('data', data => buffers.push(data));
-        file.on('end', () => {
-          result.file = Buffer.concat(buffers);
+    busboy.on('file', (fieldname, file, info) => {
+      const chunks = [];
+      // busboy v1.x
+      const v1name = info?.filename;
+      const v1type = info?.mimeType || info?.mimetype;
 
-          // 🔥 Поддержка новых и старых версий busboy
-          if (typeof fileInfo === 'string') {
-            result.filename = fileInfo;
-            result.mimetype = "application/octet-stream";
-          } else {
-            result.filename = fileInfo?.filename || `export-${Date.now()}.csv`;
-            result.mimetype = fileInfo?.mimeType || "text/csv";
-          }
-        });
+      file.on('data', (d) => chunks.push(d));
+      file.on('end', () => {
+        result.file = Buffer.concat(chunks);
+        result.filename = v1name || result.fields.filename || `export-${Date.now()}.csv`;
+        result.mimetype =
+          (result.fields.contentType || v1type || 'application/octet-stream')
+            .replace(/;\s*charset=.*$/i, '') + '; charset=utf-8';
       });
+    });
 
-      busboy.on('finish', () => resolve(result));
+    await new Promise((resolve, reject) => {
+      busboy.on('finish', resolve);
+      busboy.on('error', reject);
       req.pipe(busboy);
     });
 
-    if (!result.file || typeof result.filename !== 'string') {
-      console.error("❌ Некорректный файл или имя:", result.filename);
-      return res.status(400).json({ error: 'Файл не передан или имя некорректно' });
+    if (!result.file || !result.filename) {
+      return res.status(400).json({ error: 'Файл не передан' });
     }
 
-    const { error } = await supabase.storage
-      .from("exports")
-      .upload(result.filename, result.file, {
-        cacheControl: "3600",
-        upsert: true,
+    // папка пользователя
+    const userId = result.fields.user_id || req.headers['x-user-id'] || 'unknown_user';
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const finalName = result.filename.replace(/(\.\w+)$/, `-${ts}$1`);
+    const path = `${userId}/${finalName}`;
+
+    const { error: upErr } = await supabase.storage
+      .from('exports')
+      .upload(path, result.file, {
         contentType: result.mimetype,
+        upsert: true,
+        cacheControl: '3600'
       });
 
-    if (error) {
-      console.error("Ошибка загрузки в Supabase:", error);
-      return res.status(500).json({ error: "Ошибка загрузки файла" });
+    if (upErr) {
+      console.error('Ошибка загрузки в Storage:', upErr);
+      return res.status(500).json({ error: 'Ошибка загрузки файла' });
     }
 
-    const { data } = supabase.storage.from("exports").getPublicUrl(result.filename);
-    return res.status(200).json({ url: data?.publicUrl });
-  } catch (err) {
-    console.error("Сбой сервера при загрузке:", err);
-    return res.status(500).json({ error: "Сбой сервера" });
+    // публичная ссылка (если бакет приватный — сделаем createSignedUrl на стороне клиента/другого роута)
+    const { data: pub } = supabase.storage.from('exports').getPublicUrl(path);
+    return res.status(200).json({ url: pub?.publicUrl || null, path });
+  } catch (e) {
+    console.error('Сбой сервера при загрузке:', e);
+    return res.status(500).json({ error: 'Сбой сервера' });
   }
 }
