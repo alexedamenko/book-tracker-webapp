@@ -155,7 +155,7 @@ window.openBook = function (id) {
     </div>
 
     <div class="footer-buttons" style="margin-top: 12px;">
-      <button onclick="focusBookInList('${book.id}')">← Назад</button>// изменения
+      <button onclick="focusBookInList('${book.id}')">← Назад</button>
     </div>
   `;
   // чтобы после перехода всё было видно
@@ -480,7 +480,7 @@ window.editBook = function(id) {
     };
 
     await updateBook(id, updated);
-await focusBookInList(book.id || window.lastOpenedBookId); //изменено 
+await focusBookInList(book.id || window.lastOpenedBookId); 
   });
 };
 
@@ -763,44 +763,45 @@ window.focusBookInList = async function (bookId) {
 // 📤 Экспорт в CSV/JSON
 function exportToCSV(data) {
   if (!data || !data.length) return;
-
   const header = Object.keys(data[0]);
   const rows = data.map(row =>
-    header.map(field => `"${(row[field] || "").toString().replace(/"/g, '""')}"`)
+    header.map(field => `"${(row[field] ?? "").toString().replace(/"/g, '""')}"`)
   );
-  
-  // Добавляем BOM (Byte Order Mark) для корректного открытия в Excel
-  const bom = "\uFEFF";
-  const csvContent = bom + [header.join(","), ...rows.map(r => r.join(","))].join("\n");
 
+  const bom = "\uFEFF"; // для Excel
+  const csvContent = bom + [header.join(","), ...rows.map(r => r.join(","))].join("\n");
   uploadAndShare(csvContent, `books-${userId}.csv`, "text/csv");
 }
 
-
 function exportToJSON(data) {
-  const jsonContent = JSON.stringify(data, null, 2);
+  const jsonContent = JSON.stringify(data ?? [], null, 2);
   uploadAndShare(jsonContent, `books-${userId}.json`, "application/json");
 }
 
-// ☁️ Загрузка и открытие файла экспорта
+// ☁️ Загрузка и скачивание файла экспорта (Telegram-friendly)
 async function uploadAndShare(content, filename, type) {
-  const blob = new Blob([content], { type });
-  const url = await uploadExportFile(filename, blob, type);
+  // Лучше уникализировать имя, чтобы не затирать старые файлы
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const finalName = filename.replace(/(\.\w+)$/, `-${ts}$1`); // books-uid-TS.csv
 
-  if (url) {
-    alert("✅ Файл готов к скачиванию");
+  // ⚠️ charset важен для CSV/JSON в Excel/Windows
+  const blob = new Blob([content], { type: `${type}; charset=utf-8` });
 
-    // 📥 Программное скачивание
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } else {
+  // твоя функция — должна вернуть ПУБЛИЧНЫЙ URL файла в бакете
+  const publicUrl = await uploadExportFile(finalName, blob, type);
+  if (!publicUrl) {
     alert("❌ Ошибка при экспорте файла");
+    return;
   }
+
+  // 👉 ключевая строчка: принудить скачивание
+  const dlUrl = publicUrl + (publicUrl.includes("?") ? "&" : "?") +
+                "download=" + encodeURIComponent(finalName);
+
+  // Открываем в этой же вкладке — так корректно работает в Telegram WebView
+  window.location.href = dlUrl;
 }
+
 
 renderMainScreen();
 
