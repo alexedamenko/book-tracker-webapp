@@ -135,7 +135,7 @@ export async function deleteCommentImage(url) {
 }
 
 // api.js (или где у тебя)
-export async function uploadExportFile(filename, blob, contentType) {
+export async function uploadExport(userId, filename, blob, contentType) {
   const form = new FormData();
   form.append('file', blob, filename);
   form.append('filename', filename);
