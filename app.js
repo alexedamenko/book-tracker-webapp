@@ -4,7 +4,7 @@
 import {
   getBooks,
   addBook,
-  uploadExportFile,
+  uploadExport,
   exportBooks,
   updateBook,
   deleteBook,
@@ -785,7 +785,7 @@ async function uploadAndShare(content, filename, type) {
   const finalName = filename.replace(/(\.\w+)$/, `-${ts}$1`);
   const blob = new Blob([content], { type: `${type}; charset=utf-8` });
 
-  const publicUrl = await uploadExportFile(userId, finalName, blob, type);
+  const publicUrl = await uploadExport(userId, finalName, blob, type);
   if (!publicUrl) return alert("❌ Ошибка при экспорте файла");
 
   const dlUrl = publicUrl + (publicUrl.includes("?") ? "&" : "?")
