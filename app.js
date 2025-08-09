@@ -785,14 +785,25 @@ async function uploadAndShare(content, filename, type) {
   const finalName = filename.replace(/(\.\w+)$/, `-${ts}$1`);
   const blob = new Blob([content], { type: `${type}; charset=utf-8` });
 
-  const publicUrl = await uploadExport(userId, finalName, blob, type);
-  if (!publicUrl) return alert("❌ Ошибка при экспорте файла");
+  // 👇 твоя функция: теперь сигнатура uploadExportFile(userId, ...)
+  const publicUrl = await uploadExportFile(userId, finalName, blob, type);
+  if (!publicUrl) {
+    alert("❌ Ошибка при экспорте файла");
+    return;
+  }
 
-  const dlUrl = publicUrl + (publicUrl.includes("?") ? "&" : "?")
-              + "download=" + encodeURIComponent(finalName);
+  // форс-скачивание
+  const dlUrl = publicUrl + (publicUrl.includes("?") ? "&" : "?") +
+                "download=" + encodeURIComponent(finalName);
 
-  // В Telegram WebView это надёжнее, чем скрытая <a>
-  window.location.href = dlUrl;
+  // 🔑 КЛЮЧЕВОЕ: на мобилках открываем внешним браузером
+  const tg = window.Telegram?.WebApp;
+  if (tg?.openLink) {
+    tg.openLink(dlUrl); // откроет Safari/Chrome с нормальным диалогом скачивания
+  } else {
+    // десктоп/обычный браузер
+    window.open(dlUrl, "_blank", "noopener,noreferrer");
+  }
 }
 
 
