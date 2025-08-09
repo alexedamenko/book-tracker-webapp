@@ -761,22 +761,38 @@ window.focusBookInList = async function (bookId) {
 
 
 
-// 📤 Экспорт в CSV/JSON
-function exportToCSV(data) {
-  if (!data || !data.length) return;
-  const header = Object.keys(data[0]);
-  const rows = data.map(row =>
-    header.map(field => `"${(row[field] ?? "").toString().replace(/"/g, '""')}"`)
-  );
 
-  const bom = "\uFEFF"; // для Excel
-  const csvContent = bom + [header.join(","), ...rows.map(r => r.join(","))].join("\n");
-  uploadAndShare(csvContent, `books-${userId}.csv`, "text/csv");
+  // ✅ Жёсткий набор колонок и порядок
+const EXPORT_COLS = [
+  { key: 'title',       label: 'Название',   get: b => b.title ?? '' },
+  { key: 'author',      label: 'Автор',      get: b => b.author ?? '' },
+  { key: 'status',      label: 'Статус',     get: b => b.status ?? '' },
+  { key: 'rating',      label: 'Оценка',     get: b => b.rating ?? '' },
+  { key: 'started_at',  label: 'Начал',      get: b => b.started_at ?? '' },
+  { key: 'finished_at', label: 'Закончил',   get: b => b.finished_at ?? '' },
+  { key: 'comment',     label: 'Комментарий',get: b => (b.comment ?? '').replace(/\r?\n/g,' ') },
+  // при желании добавь: category, tags, added_at и т.д.
+];
+// 📤 Экспорт в CSV/JSON
+  
+function escapeCsv(v) {
+  return `"${String(v ?? '').replace(/"/g,'""')}"`;
+}
+async function exportToCSV(data) {
+  if (!data?.length) { alert("Нет данных для экспорта"); return; }
+  const header = EXPORT_COLS.map(c => c.label);
+  const rows = data.map(b => EXPORT_COLS.map(c => escapeCsv(c.get(b))));
+  const bom = "\uFEFF";
+  const csvContent = bom + [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+  await uploadAndShare(csvContent, `books-${userId}.csv`, 'text/csv');
 }
 
-function exportToJSON(data) {
-  const jsonContent = JSON.stringify(data ?? [], null, 2);
-  uploadAndShare(jsonContent, `books-${userId}.json`, "application/json");
+async function exportToJSON(data) {
+  const slim = (data ?? []).map(b =>
+    Object.fromEntries(EXPORT_COLS.map(c => [c.key, c.get(b)]))
+  );
+  const jsonContent = JSON.stringify(slim, null, 2);
+  await uploadAndShare(jsonContent, `books-${userId}.json`, 'application/json');
 }
 
 // ☁️ Загрузка и скачивание файла экспорта (Telegram-friendly)
