@@ -109,7 +109,7 @@ window.closeZoom = function () {
 // 🧩 Отрисовка карточки книги (обложка, название, рейтинг, даты и заметка)
 function renderBookCard(book) {
    return `
-    <div class="book-card" data-book-id="${b.id}"> // изменения 09/08/25
+    <div class="book-card" data-book-id="${b.id}"> // изменения 
       <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
       
       <div class="info">
@@ -141,7 +141,7 @@ function renderStars(rating = 0) {
 
 // 📖 Просмотр карточки книги
 window.openBook = function (id) {
-  window.lastOpenedBookId = id; // изменения 09/08/25
+  window.lastOpenedBookId = id; // изменения 
   const book = books.find(b => String(b.id) === String(id));
   if (!book) { alert("Книга не найдена"); return; }
 
@@ -152,7 +152,7 @@ window.openBook = function (id) {
     </div>
 
     <div class="footer-buttons" style="margin-top: 12px;">
-      <button onclick="focusBookInList('${book.id}')">← Назад</button>// изменения 09/08/25
+      <button onclick="focusBookInList('${book.id}')">← Назад</button>// изменения
     </div>
   `;
   // чтобы после перехода всё было видно
@@ -477,7 +477,7 @@ window.editBook = function(id) {
     };
 
     await updateBook(id, updated);
-await focusBookInList(book.id || window.lastOpenedBookId); //изменено 09/08/25
+await focusBookInList(book.id || window.lastOpenedBookId); //изменено 
   });
 };
 
