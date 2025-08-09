@@ -134,22 +134,17 @@ export async function deleteCommentImage(url) {
   }
 }
 
-export async function uploadExportFile(filename, blob, contentType = "text/csv") {
-  const formData = new FormData();
-  formData.append("file", blob, filename);
-  formData.append("type", contentType);
+// api.js (или где у тебя)
+export async function uploadExportFile(filename, blob, contentType) {
+  const form = new FormData();
+  form.append('file', blob, filename);
+  form.append('filename', filename);
+  form.append('contentType', `${contentType}; charset=utf-8`);
+  form.append('user_id', userId); // 👈 важно для подпапки
 
-  const res = await fetch("/api/uploadExport", {
-    method: "POST",
-    body: formData
-  });
-
-  if (!res.ok) {
-    console.error("❌ Ошибка загрузки файла");
-    return null;
-  }
-
-  const { url } = await res.json();
-  return url;
+  const res = await fetch('/api/uploadExport', { method: 'POST', body: form });
+  const data = await res.json(); // тут точно JSON
+  return data?.url || null;
 }
+
 
