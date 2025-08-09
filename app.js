@@ -17,15 +17,17 @@ import {
   uploadCommentImage
 } from './api.js';
 
-// ✅ Инициализация WebApp Telegram и проверка запуска внутри Telegram
- Telegram.WebApp.ready();
- if (!Telegram.WebApp.initDataUnsafe?.user?.id) {
-   alert("❗ Пожалуйста, открой приложение через Telegram");
-   throw new Error("WebApp запущен вне Telegram");
+// ✅ Инициализация WebApp Telegram (и демо-режим локально)
+const tg = window.Telegram?.WebApp;
+let userId;
+
+if (tg && tg.initDataUnsafe?.user?.id) {
+  tg.ready();
+  userId = tg.initDataUnsafe.user.id.toString();
+} else {
+  console.warn("Demo mode: running outside Telegram");
+  userId = "demo_user_001";
 }
-const userId = Telegram.WebApp.initDataUnsafe.user.id.toString();
-// ВРЕМЕННО: заглушка для userId
-// const userId = "demo_user_001";
 
 
 // 📚 Хранилище текущего списка книг и активной вкладки
@@ -51,7 +53,7 @@ window.renderMainScreen = async function () {
     <button onclick="showAddForm()">+ Добавить книгу</button>
 
     <div id="book-list">
-      ${filtered.length > 0 ? filtered.map().join("") : "<p>📭 Нет книг в этой категории</p>"}
+    ${filtered.length > 0 ? filtered.map(renderBookCard).join("") : "<p>📭 Нет книг в этой категории</p>"}
     </div>
 
     <div class="footer-buttons">
@@ -108,12 +110,12 @@ window.closeZoom = function () {
 
 // 🧩 Отрисовка карточки книги (обложка, название, рейтинг, даты и заметка)
 function renderBookCard(book) {
-   return `
-    <div class="book-card" data-book-id="${b.id}"> // изменения 
+  return `
+    <div class="book-card" data-book-id="${book.id}">
       <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
-      
+
       <div class="info">
-       <div class="card-actions-top">
+        <div class="card-actions-top">
           <button class="icon-btn" onclick="editBook('${book.id}')">✏️</button>
           <button class="icon-btn" onclick="deleteBook('${book.id}')">🗑️</button>
         </div>
@@ -125,9 +127,9 @@ function renderBookCard(book) {
           ${book.finished_at ? `<div>🏁 ${book.finished_at}</div>` : ""}
           <div class="comment-preview">
             <button onclick="openComment('${book.id}')">💬 Заметки/Выводы</button>
-                  </div>
-              </div>
-         </div>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 }
@@ -141,7 +143,7 @@ function renderStars(rating = 0) {
 
 // 📖 Просмотр карточки книги
 window.openBook = function (id) {
-  window.prevTabOnOpen = window.currentTab;   // откуда пришли
+  window.prevTabOnOpen = currentTab;   // откуда пришли
   window.lastOpenedBookId = id;               // что открывали
   const book = books.find(b => String(b.id) === String(id));
   if (!book) { alert("Книга не найдена"); return; }
@@ -740,7 +742,7 @@ window.focusBookInList = async function (bookId) {
   await renderMainScreen(); // на всякий случай отрисуем, если не нашли книгу
   if (!book) return;
 
-  window.currentTab = book.status || window.currentTab;
+  currentTab = book.status || currentTab;
   await renderMainScreen();
 
   // подсветка и прокрутка к книге
