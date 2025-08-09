@@ -77,10 +77,11 @@ window.renderMainScreen = async function () {
       const format = option.getAttribute("data-format");
       document.getElementById("formatMenu").classList.add("hidden");
 
-      const data = await exportBooks(userId);
+// Берём уже загруженный список (если пусто — подстрахуемся повторной загрузкой)
+const data = (books && books.length) ? books : await getBooks(userId);
 if (!data || !data.length) {
-  alert("Нет данных для экспорта");
-  return;
+alert("Нет данных для экспорта");
+return;
 }
 
       if (format === "csv") exportToCSV(data);
@@ -784,12 +785,14 @@ async function uploadAndShare(content, filename, type) {
   const finalName = filename.replace(/(\.\w+)$/, `-${ts}$1`);
   const blob = new Blob([content], { type: `${type}; charset=utf-8` });
 
-  const publicUrl = await uploadExportFile(finalName, blob, type);
+  const publicUrl = await uploadExportFile(userId, finalName, blob, type);
   if (!publicUrl) return alert("❌ Ошибка при экспорте файла");
 
-  const dlUrl = publicUrl + (publicUrl.includes("?") ? "&" : "?") +
-                "download=" + encodeURIComponent(finalName);
-  window.location.href = dlUrl; // Telegram-friendly
+  const dlUrl = publicUrl + (publicUrl.includes("?") ? "&" : "?")
+              + "download=" + encodeURIComponent(finalName);
+
+  // В Telegram WebView это надёжнее, чем скрытая <a>
+  window.location.href = dlUrl;
 }
 
 
