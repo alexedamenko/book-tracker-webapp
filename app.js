@@ -127,7 +127,7 @@ function renderBookCard(book) {
           ${book.started_at ? `<div>📖 ${book.started_at}</div>` : ""}
           ${book.finished_at ? `<div>🏁 ${book.finished_at}</div>` : ""}
           <div class="comment-preview">
-            <button onclick="openComment('${book.id}')">💬 Заметки/Выводы</button>
+            <button onclick="openComment('${book.id}')">💬 Заметки</button>
           </div>
         </div>
       </div>
