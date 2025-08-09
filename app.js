@@ -786,7 +786,7 @@ async function uploadAndShare(content, filename, type) {
   const blob = new Blob([content], { type: `${type}; charset=utf-8` });
 
   // 👇 твоя функция: теперь сигнатура uploadExportFile(userId, ...)
-  const publicUrl = await uploadExportFile(userId, finalName, blob, type);
+  const publicUrl = await uploadExport(userId, finalName, blob, type);
   if (!publicUrl) {
     alert("❌ Ошибка при экспорте файла");
     return;
