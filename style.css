@@ -324,4 +324,9 @@ toastui-editor-popup {
 .back-btn {
   flex: 1;
 }
+.book-focus {
+  outline: 2px solid rgba(66,133,244,.7);
+  box-shadow: 0 0 0 6px rgba(66,133,244,.15);
+  transition: box-shadow .3s ease;
+}
 
