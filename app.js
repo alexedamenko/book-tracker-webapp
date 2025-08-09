@@ -121,7 +121,8 @@ function renderBookCard(book) {
           <button class="icon-btn" onclick="deleteBook('${book.id}')">🗑️</button>
         </div>
         <div class="main-block">
-          <b class="book-title">${book.title}</b>
+          <b class="book-title multi">${book.title}</b>
+         //<b class="book-title">${book.title}</b>//обрезанный
           <i class="book-author">${book.author}</i>
           ${book.rating ? `<div class="stars">${renderStars(book.rating)}</div>` : ""}
           ${book.started_at ? `<div>📖 ${book.started_at}</div>` : ""}
