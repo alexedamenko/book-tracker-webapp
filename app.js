@@ -780,26 +780,16 @@ function exportToJSON(data) {
 
 // ☁️ Загрузка и скачивание файла экспорта (Telegram-friendly)
 async function uploadAndShare(content, filename, type) {
-  // Лучше уникализировать имя, чтобы не затирать старые файлы
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const finalName = filename.replace(/(\.\w+)$/, `-${ts}$1`); // books-uid-TS.csv
-
-  // ⚠️ charset важен для CSV/JSON в Excel/Windows
+  const finalName = filename.replace(/(\.\w+)$/, `-${ts}$1`);
   const blob = new Blob([content], { type: `${type}; charset=utf-8` });
 
-  // твоя функция — должна вернуть ПУБЛИЧНЫЙ URL файла в бакете
-  const publicUrl = await uploadExport(finalName, blob, type);
-  if (!publicUrl) {
-    alert("❌ Ошибка при экспорте файла");
-    return;
-  }
+  const publicUrl = await uploadExportFile(finalName, blob, type);
+  if (!publicUrl) return alert("❌ Ошибка при экспорте файла");
 
-  // 👉 ключевая строчка: принудить скачивание
   const dlUrl = publicUrl + (publicUrl.includes("?") ? "&" : "?") +
                 "download=" + encodeURIComponent(finalName);
-
-  // Открываем в этой же вкладке — так корректно работает в Telegram WebView
-  window.location.href = dlUrl;
+  window.location.href = dlUrl; // Telegram-friendly
 }
 
 
