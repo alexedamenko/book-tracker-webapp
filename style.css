@@ -60,17 +60,15 @@ h2 {
   cursor: pointer;
 }
 
-.book-card .info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+.book-card .info { 
+  position: relative; 
+  flex: 1; 
+  min-width: 0; 
 }
 
+/* даём контенту место, чтобы не ехал под иконки */
 .book-card .main-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  padding-right: 72px; /* под 2 иконки по ~28px + зазоры */
 }
 
 .book-card .stars {
@@ -78,18 +76,28 @@ h2 {
   font-size: 14px;
 }
 
+/* верхняя панель с иконками */
 .card-actions-top {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
   display: flex;
   gap: 6px;
   z-index: 1;
 }
+
 .card-actions {
   display: flex;
   gap: 8px;
   }
+
+/* аккуратные обрезки, если строка длинная */
+.book-title, .book-author {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap; /* если хочешь 2 строки — см. ниже */
+}
 
 .icon-btn {
   background: none;
