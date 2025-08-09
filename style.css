@@ -86,17 +86,12 @@ h2 {
   z-index: 1;
 }
 
-.card-actions {
-  display: flex;
-  gap: 8px;
-  }
-
-/* аккуратные обрезки, если строка длинная */
-.book-title, .book-author {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap; /* если хочешь 2 строки — см. ниже */
+/* (опционально) сделать заголовок в 2 строки без наложения */
+.book-title.multi {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;   /* число строк */
+  -webkit-box-orient: vertical;
 }
 
 .icon-btn {
