@@ -141,7 +141,8 @@ function renderStars(rating = 0) {
 
 // 📖 Просмотр карточки книги
 window.openBook = function (id) {
-  window.lastOpenedBookId = id; // изменения 
+  window.prevTabOnOpen = window.currentTab;   // откуда пришли
+  window.lastOpenedBookId = id;               // что открывали
   const book = books.find(b => String(b.id) === String(id));
   if (!book) { alert("Книга не найдена"); return; }
 
@@ -723,19 +724,26 @@ window.showSearch = async function () {
 window.lastOpenedBookId = null;
 
 window.focusBookInList = async function (bookId) {
-  // обновим книги, вдруг статус изменился при редактировании
+  // обновим данные (на случай редактирования/удаления)
   books = await getBooks(userId);
 
+  // 👉 случай удаления или «просто вернуться»
+  if (!bookId) {
+    if (window.prevTabOnOpen) window.currentTab = window.prevTabOnOpen; // вернуться туда, откуда пришли
+    await renderMainScreen();
+    window.prevTabOnOpen = null;
+    return;
+  }
+
+  // 👉 обычный случай: вернуться к книге, переключив вкладку по её актуальному статусу
   const book = books.find(b => String(b.id) === String(bookId));
-  if (!book) { await renderMainScreen(); return; }
+  await renderMainScreen(); // на всякий случай отрисуем, если не нашли книгу
+  if (!book) return;
 
-  // перейти на «правильную» вкладку (по статусу книги)
   window.currentTab = book.status || window.currentTab;
-
-  // перерисовать список
   await renderMainScreen();
 
-  // дождаться DOM и подсветить
+  // подсветка и прокрутка к книге
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   const el = document.querySelector(`[data-book-id="${bookId}"]`);
   if (el) {
@@ -744,6 +752,7 @@ window.focusBookInList = async function (bookId) {
     setTimeout(() => el.classList.remove('book-focus'), 1600);
   }
 };
+
   
 
 
