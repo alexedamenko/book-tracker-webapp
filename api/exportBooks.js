@@ -5,6 +5,19 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+/** ✅ Разрешённые поля (белый список) */
+const WHITELIST = [
+  'title', 'author', 'status', 'rating',
+  'started_at', 'finished_at', 'added_at',
+  'comment', 'category', 'tags', 'id', 'cover_url'
+];
+
+/** ✅ Набор по умолчанию — жёстко зафиксируй тут нужные колонки и порядок */
+const DEFAULT_FIELDS = [
+  'title', 'author', 'status', 'rating',
+  'started_at', 'finished_at', 'comment'
+];
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Метод не разрешён' });
@@ -15,10 +28,28 @@ export default async function handler(req, res) {
 
   if (!userId) return res.status(400).json({ error: 'Не указан user_id' });
 
+  // 🧰 поля из query (опционально) → фильтруем по whitelist; иначе берём дефолт
+  const fieldsParam = (req.query.fields || '').toString();
+  const requested = fieldsParam
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const fields = (requested.length
+      ? requested.filter(f => WHITELIST.includes(f))
+      : DEFAULT_FIELDS
+    );
+
+  if (!fields.length) {
+    return res.status(400).json({ error: 'Нет валидных полей для экспорта' });
+  }
+
   try {
+    // Загружаем только нужные колонки
+    const selectClause = fields.join(', ');
     const { data, error } = await supabase
       .from('user_books')
-      .select('title, author, status, rating, started_at, finished_at, added_at, comment')
+      .select(selectClause)
       .eq('user_id', userId);
 
     if (error) {
@@ -34,11 +65,17 @@ export default async function handler(req, res) {
     let contentType;
 
     if (format === 'json') {
-      content = Buffer.from(JSON.stringify(data ?? [], null, 2), 'utf8');
+      // Формируем объекты только с выбранными полями
+      const slim = (data ?? []).map(row => {
+        const out = {};
+        for (const f of fields) out[f] = row?.[f] ?? '';
+        return out;
+      });
+      content = Buffer.from(JSON.stringify(slim, null, 2), 'utf8');
       contentType = 'application/json; charset=utf-8';
     } else {
-      // CSV + BOM для Excel
-      const header = ['title','author','status','rating','started_at','finished_at','added_at','comment'];
+      // CSV + BOM для Excel; хедер = имена полей (можешь заменить на русские подписи)
+      const header = fields;
       const rows = (data ?? []).map(row =>
         header.map(f => `"${String(row?.[f] ?? '').replace(/"/g, '""')}"`).join(',')
       );
@@ -49,12 +86,11 @@ export default async function handler(req, res) {
     }
 
     // ---------- сохраняем копию в Supabase Storage ----------
-    const bucket = 'exports'; // убедись, что такой приватный bucket есть
+    const bucket = 'exports'; // приватный или публичный — как у тебя настроено
     const path = `${userId}/${filename}`;
     const { error: upErr } = await supabase.storage
       .from(bucket)
       .upload(path, content, { contentType, upsert: true });
-
     if (upErr) console.warn('⚠️ Не удалось сохранить копию в Storage:', upErr);
 
     // ---------- форс-скачивание ----------
@@ -67,3 +103,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Сбой сервера' });
   }
 }
+
