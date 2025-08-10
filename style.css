@@ -49,7 +49,7 @@ h2 {
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .book-card img {
@@ -71,13 +71,8 @@ h2 {
 .book-card .main-block {
   display: flex;
   flex-direction: column;
-  gap: 4px;                 /* зазор между title/author/датами/кнопкой */
+  gap: 2px;                 /* зазор между title/author/датами/кнопкой */
   padding-right: 72px; /* под 2 иконки по ~28px + зазоры */
-}
-
-/* Универсальный «зазор» между элементами колонки */
-.book-card .main-block > * + * {
-  margin-top: 6px;       /* вместо gap (в Telegram Desktop часто не работает) */
 }
 
 .book-card .stars {
