@@ -134,7 +134,6 @@ export async function deleteCommentImage(url) {
   }
 }
 
-// api.js (или где у тебя)
 export async function uploadExport(userId, filename, blob, contentType) {
   const form = new FormData();
   form.append('file', blob, filename);
@@ -147,4 +146,51 @@ export async function uploadExport(userId, filename, blob, contentType) {
   return data?.url || null;
 }
 
+export async function listCollections(userId) {
+  const r = await fetch(`/api/handler?route=listCollections&user_id=${encodeURIComponent(userId)}`);
+  return r.ok ? r.json() : [];
+}
+
+export async function createCollection(userId, name, icon = '', color = '') {
+  const r = await fetch('/api/handler?route=createCollection', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, name, icon, color })
+  });
+  return r.ok ? r.json() : null; // {id}
+}
+
+export async function renameCollection(id, fields) {
+  await fetch('/api/handler?route=renameCollection', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, ...fields })
+  });
+}
+
+export async function deleteCollection(id) {
+  await fetch('/api/handler?route=deleteCollection', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function setBookCollections(userId, bookId, collectionIds) {
+  await fetch('/api/handler?route=setBookCollections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, book_id: bookId, collection_ids: collectionIds })
+  });
+}
+
+export async function listBookCollections(bookId) {
+  const r = await fetch(`/api/handler?route=listBookCollections&book_id=${encodeURIComponent(bookId)}`);
+  return r.ok ? r.json() : [];
+}
+
+export async function listAllBookCollections(userId) {
+  const r = await fetch(`/api/handler?route=listAllBookCollections&user_id=${encodeURIComponent(userId)}`);
+  return r.ok ? r.json() : [];
+}
 
