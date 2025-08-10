@@ -60,6 +60,7 @@ h2 {
   cursor: pointer;
 }
 
+/* Контейнер с текстом — не даём переполняться в флексе */
 .book-card .info { 
   position: relative; 
   flex: 1; 
@@ -68,6 +69,9 @@ h2 {
 
 /* даём контенту место, чтобы не ехал под иконки */
 .book-card .main-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;                 /* зазор между title/author/датами/кнопкой */
   padding-right: 72px; /* под 2 иконки по ~28px + зазоры */
 }
 
