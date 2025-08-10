@@ -5,6 +5,16 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+// Обязательно: если используешь чтение req.body от Next.js
+export const config = { api: { bodyParser: true } };
+// Универсальный JSON-ридер: берёт req.body (Next), иначе читает поток
+async function readJsonBody(req) {
+  if (req.body && typeof req.body === 'object') return req.body;
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  const raw = Buffer.concat(chunks).toString('utf8').trim();
+  return raw ? JSON.parse(raw) : {};
+}
 
 // 🔧 Чтение тела POST-запроса
 async function getBody(req) {
