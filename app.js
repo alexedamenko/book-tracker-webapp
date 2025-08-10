@@ -14,7 +14,10 @@ import {
   uploadCover,
   searchBooks,
   deleteCommentImage,
-  uploadCommentImage
+  uploadCommentImage,
+  listCollections,
+  listAllBookCollections,
+  setBookCollections
 } from './api.js';
 
 // ✅ Инициализация WebApp Telegram (и демо-режим локально)
@@ -44,15 +47,16 @@ window.renderMainScreen = async function () {
   books = await getBooks(userId);
   window.books = books;
   const container = document.getElementById("app");
-  const filtered = books.filter(b => b.status === currentTab);
+ // полки и связи книга↔полка
+ collections = await listCollections(userId);
+ const links = await listAllBookCollections(userId);
+ bookCollectionsMap = new Map();
+ for (const { book_id, collection_id } of links) {
+   if (!bookCollectionsMap.has(book_id)) bookCollectionsMap.set(book_id, new Set());
+   bookCollectionsMap.get(book_id).add(collection_id);
+ }
 
-  collections = await listCollections(userId);
-const links = await listAllBookCollections(userId);
-bookCollectionsMap = new Map();
-for (const { book_id, collection_id } of links) {
-  if (!bookCollectionsMap.has(book_id)) bookCollectionsMap.set(book_id, new Set());
-  bookCollectionsMap.get(book_id).add(collection_id);
-}
++ const visible = getVisibleBooks(); // статус + текущая полка
   
   container.innerHTML = `
     <h2>📘 Мой книжный трекер</h2>
@@ -64,11 +68,11 @@ for (const { book_id, collection_id } of links) {
     </div>
 
     <button onclick="showAddForm()">+ Добавить книгу</button>
-  ${renderTabs()} 
+  
   ${renderCollectionsBar()}
   
     <div id="book-list">
-    ${filtered.length > 0 ? filtered.map(renderBookCard).join("") : "<p>📭 Нет книг в этой категории</p>"}
+    ${visible.length ? visible.map(renderBookCard).join("") : "<p>📭 Нет книг в этой категории</p>"}
     </div>
 
     <div class="footer-buttons">
@@ -155,6 +159,12 @@ window.closeZoom = function () {
 
 // 🧩 Отрисовка карточки книги (обложка, название, рейтинг, даты и заметка)
 function renderBookCard(book) {
+  const chips = (bookCollectionsMap.get(book.id) || new Set());
+  const chipsHtml = [...chips].slice(0, 3).map(cid => {
+    const c = collections.find(x => x.id === cid);
+    return c ? `<span class="chip small">${c.icon || '🏷️'} ${escapeHtml(c.name)}</span>` : '';
+  }).join(' ');
+
   return `
     <div class="book-card" data-book-id="${book.id}">
       <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
@@ -166,7 +176,8 @@ function renderBookCard(book) {
         </div>
         <div class="main-block">
           <b class="book-title multi">${book.title}</b>
-          <i class="book-author">${book.author}</i>
+          <i class="book-author">${book.author || ''}</i>
+          ${chipsHtml ? `<div class="chips-row">${chipsHtml}</div>` : ''}
           ${book.rating ? `<div class="stars">${renderStars(book.rating)}</div>` : ""}
           ${book.started_at ? `<div>📖 ${book.started_at}</div>` : ""}
           ${book.finished_at ? `<div>🏁 ${book.finished_at}</div>` : ""}
@@ -177,24 +188,8 @@ function renderBookCard(book) {
       </div>
     </div>
   `;
-  const chips = (bookCollectionsMap.get(book.id) || new Set());
-const chipsHtml = [...chips].slice(0,3).map(cid => {
-  const c = collections.find(x => x.id === cid);
-  return c ? `<span class="chip small">${c.icon || '🏷️'} ${escapeHtml(c.name)}</span>` : '';
-}).join(' ');
-
-return `
-  <div class="book-card" data-book-id="${book.id}">
-    <!-- ... -->
-    <div class="main-block">
-      <b class="book-title">${book.title}</b>
-      <i class="book-author">${book.author || ''}</i>
-      ${chipsHtml ? `<div class="chips-row">${chipsHtml}</div>` : ''}
-      <!-- ... -->
-    </div>
-  </div>
-`;
 }
+
 
 // ⭐ Отображение рейтинга в виде звёздочек
 function renderStars(rating = 0) {
@@ -414,16 +409,16 @@ window.selectBook = function(title, author, coverUrl) {
 };
 
 // ✏️ Показ формы редактирования книги
-window.editBook = function(id) {
+window.editBook = async function(id) {
   window.prevTabOnOpen   = currentTab;
   window.lastOpenedBookId = id;
+
   const book = books.find(b => b.id === id);
   const container = document.getElementById("app");
 
   container.innerHTML = `
     <h2>✏️ Редактирование книги</h2>
     <form id="editForm" class="add-book-form">
-
       <div class="form-block">
         <label>Название книги</label>
         <input type="text" id="title" value="${book.title}" required />
@@ -440,15 +435,7 @@ window.editBook = function(id) {
         <input type="url" id="cover_url" value="${book.cover_url || ''}" />
         <img id="coverPreview" 
              src="${book.cover_url || ''}" 
-             style="
-               max-height: 140px;
-               max-width: 100%;
-               margin-top: 8px;
-               ${book.cover_url ? '' : 'display:none;'}
-               object-fit: contain;
-               border-radius: 8px;
-               box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-             " />
+             style="max-height:140px;max-width:100%;margin-top:8px;${book.cover_url ? '' : 'display:none;'}object-fit:contain;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.15);" />
       </div>
 
       <div class="form-block">
@@ -477,74 +464,53 @@ window.editBook = function(id) {
         <input type="date" id="finished_at" value="${book.finished_at || ''}" />
       </div>
 
+      <div id="collectionsBlock" class="form-block">
+        <label>Полки</label>
+        <div id="col-select" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
+      </div>
+
       <div class="form-buttons">
         <button type="submit" class="save-btn">💾 Сохранить</button>
         <button type="button" class="back-btn" id="backBtn">← Назад</button>
       </div>
-
-// перед рендером формы
-const selected = new Set(await listBookCollections(book.id));
-
-const colsHtml = collections.map(c => `
-  <label style="display:flex;align-items:center;gap:6px">
-    <input type="checkbox" value="${c.id}" ${selected.has(c.id) ? 'checked' : ''}/>
-    ${c.icon || '🏷️'} ${escapeHtml(c.name)}
-  </label>
-`).join('');
-
-form.innerHTML += `
-  <h3>Полки</h3>
-  <div id="col-select" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
-    ${colsHtml}
-  </div>
-`;
-
-// при сохранении:
-const ids = [...form.querySelectorAll('#col-select input:checked')].map(i => i.value);
-await setBookCollections(userId, book.id, ids);
-
-      
     </form>
   `;
 
-  // 📷 Предпросмотр при выборе файла
+  // подгружаем выбранные полки и рендерим чекбоксы
+  const selected = new Set(await listBookCollections(book.id));
+  const colsHtml = collections.map(c => `
+    <label style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" value="${c.id}" ${selected.has(c.id) ? 'checked' : ''}/>
+      ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+    </label>
+  `).join('');
+  document.getElementById('col-select').innerHTML = colsHtml;
+
+  // превью обложки
   document.getElementById("cover_file").addEventListener("change", (e) => {
     const file = e.target.files[0];
     const preview = document.getElementById("coverPreview");
-    if (file) {
-      preview.src = URL.createObjectURL(file);
-      preview.style.display = "block";
-    }
+    if (file) { preview.src = URL.createObjectURL(file); preview.style.display = "block"; }
   });
-
-  // 📷 Предпросмотр при вводе URL
   document.getElementById("cover_url").addEventListener("input", (e) => {
     const url = e.target.value.trim();
     const preview = document.getElementById("coverPreview");
-    if (url) {
-      preview.src = url;
-      preview.style.display = "block";
-    } else {
-      preview.style.display = "none";
+    if (url) { preview.src = url; preview.style.display = "block"; } else { preview.style.display = "none"; }
+  });
+
+  // автоустановка даты окончания
+  document.getElementById("status").addEventListener("change", () => {
+    const status = document.getElementById("status").value;
+    const finishedInput = document.getElementById("finished_at");
+    if (status === "read" && !finishedInput.value) {
+      finishedInput.value = new Date().toISOString().split("T")[0];
     }
   });
-  
-  // Дата Прочтения
-  document.getElementById("status").addEventListener("change", () => {
-  const status = document.getElementById("status").value;
-  const finishedInput = document.getElementById("finished_at");
-
-  if (status === "read" && !finishedInput.value) {
-    const today = new Date().toISOString().split("T")[0];
-    finishedInput.value = today;
-  }
-});
-
 
   // Назад
   document.getElementById("backBtn").addEventListener("click", () => {
-  focusBookInList(window.lastOpenedBookId || id);
-});
+    focusBookInList(window.lastOpenedBookId || id);
+  });
 
   // Сохранение
   document.getElementById("editForm").addEventListener("submit", async function(e) {
@@ -552,9 +518,7 @@ await setBookCollections(userId, book.id, ids);
 
     let coverUrl = document.getElementById("cover_url").value.trim();
     const file = document.getElementById("cover_file").files[0];
-    if (file) {
-      coverUrl = await uploadCover(file);
-    }
+    if (file) coverUrl = await uploadCover(file);
 
     const updated = {
       title: document.getElementById("title").value.trim(),
@@ -569,9 +533,15 @@ await setBookCollections(userId, book.id, ids);
     };
 
     await updateBook(id, updated);
-await focusBookInList(book.id || window.lastOpenedBookId); 
+
+    // сохраняем выбранные полки
+    const ids = [...document.querySelectorAll('#col-select input:checked')].map(i => i.value);
+    await setBookCollections(userId, book.id, ids);
+
+    await focusBookInList(book.id || window.lastOpenedBookId);
   });
 };
+
 
 
 // 🗑 Удаление книги
