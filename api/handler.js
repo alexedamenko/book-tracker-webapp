@@ -42,7 +42,7 @@ const routes = {
 
   async addBook(req, res) {
     try {
-      const book = await getBody(req);
+      const book = await readJsonBody(req);
       if (!book?.title || !book?.author) {
         return res.status(400).json({ error: "Отсутствует title или author" });
       }
