@@ -336,4 +336,8 @@ toastui-editor-popup {
   box-shadow: 0 0 0 6px rgba(66,133,244,.15);
   transition: box-shadow .3s ease;
 }
+.chip { padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; background:#fff; }
+.chip.active { background:#eef2ff; border-color:#c7d2fe; }
+.chip.small { padding:2px 8px; font-size:12px; }
+.chips-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
 
