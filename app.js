@@ -354,6 +354,8 @@ window.selectBook = function(title, author, coverUrl) {
 
 // ✏️ Показ формы редактирования книги
 window.editBook = function(id) {
+  window.prevTabOnOpen   = currentTab;
+  window.lastOpenedBookId = id;
   const book = books.find(b => b.id === id);
   const container = document.getElementById("app");
 
@@ -729,7 +731,7 @@ window.lastOpenedBookId = null;
 window.focusBookInList = async function (bookId) {
   // обновим данные (на случай редактирования/удаления)
   books = await getBooks(userId);
-
+  
   // 👉 случай удаления или «просто вернуться»
   if (!bookId) {
     if (window.prevTabOnOpen) window.currentTab = window.prevTabOnOpen; // вернуться туда, откуда пришли
@@ -839,6 +841,8 @@ async function deleteImageFromSupabase(imageUrl) {
 
 // 💬 Открытие/редактирование комментария к книге через Toast UI Editor
 window.openComment = function(bookId, readonly = true) {
+  window.prevTabOnOpen   = currentTab;
+  window.lastOpenedBookId = id;
   const book = books.find(b => b.id === bookId);
   const container = document.getElementById("app");
 
@@ -852,7 +856,7 @@ window.openComment = function(bookId, readonly = true) {
         ? `<button onclick="openComment('${bookId}', false)">✏️ Редактировать</button>`
         : `<button onclick="saveComment('${book.id}')">💾 Сохранить</button>`
       }
-      <button onclick="renderMainScreen()">← Назад</button>
+      <button onclick="focusBookInList(window.lastOpenedBookId)">← Назад</button>
     </div>
   `;
 
