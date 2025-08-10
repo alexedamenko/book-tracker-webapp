@@ -5,7 +5,6 @@ import {
   getBooks,
   addBook,
   uploadExport,
-  exportBooks,
   updateBook,
   deleteBook,
   saveComment,
@@ -17,6 +16,7 @@ import {
   uploadCommentImage,
   listCollections,
   listAllBookCollections,
+  listBookCollections,
   setBookCollections
 } from './api.js';
 
@@ -56,7 +56,7 @@ window.renderMainScreen = async function () {
    bookCollectionsMap.get(book_id).add(collection_id);
  }
 
-+ const visible = getVisibleBooks(); // статус + текущая полка
+ const visible = getVisibleBooks(); // статус + текущая полка
   
   container.innerHTML = `
     <h2>📘 Мой книжный трекер</h2>
@@ -68,7 +68,12 @@ window.renderMainScreen = async function () {
     </div>
 
     <button onclick="showAddForm()">+ Добавить книгу</button>
-  
+    
+  function escapeHtml(s = "") {
+  return s.replace(/[&<>"']/g, m => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
+  ));
+}
   ${renderCollectionsBar()}
   
     <div id="book-list">
