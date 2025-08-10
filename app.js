@@ -458,7 +458,9 @@ window.editBook = function(id) {
 
 
   // Назад
-  document.getElementById("backBtn").addEventListener("click", renderMainScreen);
+  document.getElementById("backBtn").addEventListener("click", () => {
+  focusBookInList(window.lastOpenedBookId || id);
+});
 
   // Сохранение
   document.getElementById("editForm").addEventListener("submit", async function(e) {
@@ -510,7 +512,7 @@ if (book?.comment) {
 await deleteBook(id);
   
 alert("🗑 Книга удалена");
-  await renderMainScreen();
+  await focusBookInList(null);
 };
 
 
@@ -734,7 +736,7 @@ window.focusBookInList = async function (bookId) {
   
   // 👉 случай удаления или «просто вернуться»
   if (!bookId) {
-    if (window.prevTabOnOpen) window.currentTab = window.prevTabOnOpen; // вернуться туда, откуда пришли
+    if (window.prevTabOnOpen) currentTab = window.prevTabOnOpen; // вернуться туда, откуда пришли
     await renderMainScreen();
     window.prevTabOnOpen = null;
     return;
@@ -842,7 +844,7 @@ async function deleteImageFromSupabase(imageUrl) {
 // 💬 Открытие/редактирование комментария к книге через Toast UI Editor
 window.openComment = function(bookId, readonly = true) {
   window.prevTabOnOpen   = currentTab;
-  window.lastOpenedBookId = id;
+  window.lastOpenedBookId = bookId;
   const book = books.find(b => b.id === bookId);
   const container = document.getElementById("app");
 
@@ -945,7 +947,6 @@ window.saveComment = async function(bookId) {
 
   // сохраняем новый комментарий
 await saveComment(bookId, userId, newComment);
- 
-  renderMainScreen();
-};
+await focusBookInList(bookId);
+ };
 
