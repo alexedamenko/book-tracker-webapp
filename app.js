@@ -34,6 +34,11 @@ if (tg && tg.initDataUnsafe?.user?.id) {
 let books = [];
 let currentTab = "read";
 
+// 📚 Хранилище текущего списка полок
+let collections = [];
+let bookCollectionsMap = new Map(); // bookId -> Set(collectionId)
+let currentCollectionId = null;     // фильтр
+
 // 🔁 Основная функция отрисовки экрана с книгами
 window.renderMainScreen = async function () {
   books = await getBooks(userId);
@@ -41,6 +46,14 @@ window.renderMainScreen = async function () {
   const container = document.getElementById("app");
   const filtered = books.filter(b => b.status === currentTab);
 
+  collections = await listCollections(userId);
+const links = await listAllBookCollections(userId);
+bookCollectionsMap = new Map();
+for (const { book_id, collection_id } of links) {
+  if (!bookCollectionsMap.has(book_id)) bookCollectionsMap.set(book_id, new Set());
+  bookCollectionsMap.get(book_id).add(collection_id);
+}
+  
   container.innerHTML = `
     <h2>📘 Мой книжный трекер</h2>
 
@@ -51,7 +64,9 @@ window.renderMainScreen = async function () {
     </div>
 
     <button onclick="showAddForm()">+ Добавить книгу</button>
-
+  ${renderTabs()} 
+  ${renderCollectionsBar()}
+  
     <div id="book-list">
     ${filtered.length > 0 ? filtered.map(renderBookCard).join("") : "<p>📭 Нет книг в этой категории</p>"}
     </div>
@@ -66,7 +81,13 @@ window.renderMainScreen = async function () {
       <button onclick="showSearch()">🔍 Поиск</button>
     </div>
   `;
-
+container.querySelectorAll('.collections-bar .chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentCollectionId = btn.dataset.id || null;
+    renderMainScreen();
+  });
+});
+  
   // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
     document.getElementById("formatMenu").classList.toggle("hidden");
@@ -96,6 +117,29 @@ window.switchTab = function (tab) {
   currentTab = tab;
   renderMainScreen();
 };
+
+function renderCollectionsBar() {
+  return `
+    <div class="collections-bar" style="display:flex; gap:8px; overflow:auto; padding:6px 0;">
+      <button class="chip ${!currentCollectionId ? 'active' : ''}" data-id="">
+        📚 Все полки
+      </button>
+      ${collections.map(c => `
+        <button class="chip ${currentCollectionId === c.id ? 'active' : ''}" data-id="${c.id}">
+          ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function getVisibleBooks() {
+  let base = books.filter(b => b.status === currentTab);
+  if (currentCollectionId) {
+    base = base.filter(b => bookCollectionsMap.get(b.id)?.has(currentCollectionId));
+  }
+  return base;
+}
 
 // 📷 Зум обложки (одна функция вместо трёх)
 window.showZoom = function (url) {
@@ -133,6 +177,23 @@ function renderBookCard(book) {
       </div>
     </div>
   `;
+  const chips = (bookCollectionsMap.get(book.id) || new Set());
+const chipsHtml = [...chips].slice(0,3).map(cid => {
+  const c = collections.find(x => x.id === cid);
+  return c ? `<span class="chip small">${c.icon || '🏷️'} ${escapeHtml(c.name)}</span>` : '';
+}).join(' ');
+
+return `
+  <div class="book-card" data-book-id="${book.id}">
+    <!-- ... -->
+    <div class="main-block">
+      <b class="book-title">${book.title}</b>
+      <i class="book-author">${book.author || ''}</i>
+      ${chipsHtml ? `<div class="chips-row">${chipsHtml}</div>` : ''}
+      <!-- ... -->
+    </div>
+  </div>
+`;
 }
 
 // ⭐ Отображение рейтинга в виде звёздочек
@@ -420,6 +481,29 @@ window.editBook = function(id) {
         <button type="submit" class="save-btn">💾 Сохранить</button>
         <button type="button" class="back-btn" id="backBtn">← Назад</button>
       </div>
+
+// перед рендером формы
+const selected = new Set(await listBookCollections(book.id));
+
+const colsHtml = collections.map(c => `
+  <label style="display:flex;align-items:center;gap:6px">
+    <input type="checkbox" value="${c.id}" ${selected.has(c.id) ? 'checked' : ''}/>
+    ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+  </label>
+`).join('');
+
+form.innerHTML += `
+  <h3>Полки</h3>
+  <div id="col-select" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
+    ${colsHtml}
+  </div>
+`;
+
+// при сохранении:
+const ids = [...form.querySelectorAll('#col-select input:checked')].map(i => i.value);
+await setBookCollections(userId, book.id, ids);
+
+      
     </form>
   `;
 
