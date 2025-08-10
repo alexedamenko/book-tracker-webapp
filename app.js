@@ -58,6 +58,11 @@ window.renderMainScreen = async function () {
 
  const visible = getVisibleBooks(); // статус + текущая полка
   
+   function escapeHtml(s = "") {
+  return s.replace(/[&<>"']/g, m => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
+  ));
+} 
   container.innerHTML = `
     <h2>📘 Мой книжный трекер</h2>
 
@@ -69,11 +74,7 @@ window.renderMainScreen = async function () {
 
     <button onclick="showAddForm()">+ Добавить книгу</button>
     
-  function escapeHtml(s = "") {
-  return s.replace(/[&<>"']/g, m => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
-  ));
-}
+
   ${renderCollectionsBar()}
   
     <div id="book-list">
