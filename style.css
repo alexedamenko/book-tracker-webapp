@@ -75,6 +75,11 @@ h2 {
   padding-right: 72px; /* под 2 иконки по ~28px + зазоры */
 }
 
+/* Универсальный «зазор» между элементами колонки */
+.book-card .main-block > * + * {
+  margin-top: 6px;       /* вместо gap (в Telegram Desktop часто не работает) */
+}
+
 .book-card .stars {
   color: gold;
   font-size: 14px;
@@ -94,7 +99,7 @@ h2 {
 .book-title.multi {
   white-space: normal;
   display: -webkit-box;
-  -webkit-line-clamp: 2;   /* число строк */
+  -webkit-line-clamp: 3;   /* число строк */
   -webkit-box-orient: vertical;
 }
 
