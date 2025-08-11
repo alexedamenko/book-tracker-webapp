@@ -33,19 +33,22 @@ const routes = {
   },
 
   async addBook(req, res) {
-    try {
-      const book = await readJsonBody(req);
-      if (!book?.title || !book?.author) {
-        return res.status(400).json({ error: "Отсутствует title или author" });
-      }
-
-      const { error } = await supabase.from('user_books').insert([book]);
-      if (error) return res.status(500).json({ error: error.message });
-
-      res.status(200).json({ success: true });
-    } catch {
-      res.status(400).json({ error: "Invalid JSON" });
+     try {
+    const book = await readJsonBody(req);
+    if (!book?.title || !book?.author || !book?.user_id) {
+      return res.status(400).json({ error: "user_id, title и author обязательны" });
     }
+    const { data, error } = await supabase
+      .from("user_books")
+      .insert([book])
+      .select("id")
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(200).json({ id: data.id });
+  } catch {
+    res.status(400).json({ error: "Invalid JSON" });
+  }
   },
 
   async searchBooks(req, res, params) {
