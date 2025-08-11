@@ -107,10 +107,6 @@ window.renderMainScreen = async function () {
     </div>
   `;
   
-// «Все полки» — открыть менеджер
-const manageBtn = container.querySelector('#manageCollectionsBtn');
-if (manageBtn) manageBtn.addEventListener('click', showCollections);
-  
   // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
     document.getElementById("formatMenu").classList.toggle("hidden");
@@ -144,17 +140,21 @@ window.switchTab = function (tab) {
 function renderCollectionsBar() {
   return `
     <div class="collections-bar" style="display:flex; gap:8px; overflow:auto; padding:6px 0;">
+      <!-- ВАЖНО: у «Все полки» НЕТ data-id -->
       <button id="manageCollectionsBtn" class="chip ${!currentCollectionId ? 'active' : ''}">
         📚 Все полки
       </button>
       ${collections.map(c => `
-        <button class="chip ${currentCollectionId === c.id ? 'active' : ''}" data-id="${c.id}">
+        <button class="chip ${String(currentCollectionId) === String(c.id) ? 'active' : ''}" data-id="${c.id}">
           ${c.icon || '🏷️'} ${escapeHtml(c.name)}
         </button>
       `).join('')}
+      <!-- отдельная кнопка для открытия менеджера -->
+      <button id="openCollectionsManagerBtn" class="chip ghost" title="Управлять полками">⚙️</button>
     </div>
   `;
 }
+
 
 
 
@@ -1144,24 +1144,30 @@ await focusBookInList(bookId);
     const chip = e.target.closest('.collections-bar .chip');
     if (!chip) return;
 
-    // «Все полки» — просто снять фильтр и перерисовать
+    // «Все полки» — ТОЛЬКО снять фильтр (не открывать менеджер)
     if (chip.id === 'manageCollectionsBtn') {
-      currentCollectionId = null;          // 👈 показываем все книги
+      e.preventDefault();
+      e.stopPropagation();
+      currentCollectionId = null;
       renderMainScreen();
       return;
     }
 
-    // Обычная полка — ТУТ логика «переключателя»
+    // Клик по обычной полке — вкл/выкл фильтр (переключатель)
     const id = chip.getAttribute('data-id');
     if (!id) return;
-
-    // если повторный клик по активной — снимаем фильтр
-    if (String(currentCollectionId) === String(id)) {
-      currentCollectionId = null;          // 👈 снять фильтр
-    } else {
-      currentCollectionId = id;            // 👈 применить фильтр по этой полке
-    }
+    currentCollectionId = (String(currentCollectionId) === String(id)) ? null : id;
     renderMainScreen();
   });
+
+  // Отдельная кнопка для менеджера полок (см. ниже в разметке)
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest('#openCollectionsManagerBtn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    showCollections();
+  });
 })();
+
 
