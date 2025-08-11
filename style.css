@@ -343,3 +343,48 @@ toastui-editor-popup {
   
 .collections-bar .chip { cursor: pointer; }
 .collections-bar .chip.active { background:#eef2ff; border-color:#c7d2fe; }
+
+/* ——— Полки (чипы): читаемо на мобилке, светлая/тёмная тема Telegram ——— */
+.collections-bar .chip {
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--tg-theme-hint-color, #d1d5db);
+  background: var(--tg-theme-secondary-bg-color, #f4f6fb);
+  color: var(--tg-theme-text-color, #111);   /* 🔑 текст больше не белый */
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+/* активная полка — хороший контраст */
+.collections-bar .chip.active {
+  background: var(--tg-theme-button-color, #e0e7ff);
+  color: var(--tg-theme-button-text-color, #111);
+  border-color: var(--tg-theme-button-color, #a5b4fc);
+}
+
+/* наведение/фокус (видно и на десктопе) */
+.collections-bar .chip:hover { filter: brightness(0.98); }
+.collections-bar .chip:focus-visible {
+  outline: 2px solid rgba(59,130,246,.6);
+  outline-offset: 2px;
+}
+
+/* если у тебя где-то глобально button { color:#fff } — перебьём локально */
+.collections-bar .chip { color: var(--tg-theme-text-color, #111) !important; }
+
+/* Тёмная тема (если вдруг Telegram переменные недоступны) */
+@media (prefers-color-scheme: dark) {
+  .collections-bar .chip {
+    background: var(--tg-theme-secondary-bg-color, #1f2937);
+    color: var(--tg-theme-text-color, #e5e7eb) !important;
+    border-color: var(--tg-theme-hint-color, #374151);
+  }
+  .collections-bar .chip.active {
+    background: rgba(99,102,241,.25);
+    color: #e5e7eb !important;
+    border-color: rgba(99,102,241,.5);
+  }
+}
