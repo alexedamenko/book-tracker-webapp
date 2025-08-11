@@ -17,7 +17,11 @@ import {
   listCollections,
   listAllBookCollections,
   listBookCollections,
-  setBookCollections
+  setBookCollections,
+  createCollection,
+  renameCollection,
+  deleteCollection,
+  getBooksByCollection
 } from './api.js';
 
 // ✅ Инициализация WebApp Telegram (и демо-режим локально)
@@ -40,7 +44,13 @@ let currentTab = "read";
 // 📚 Хранилище текущего списка полок
 let collections = [];
 let bookCollectionsMap = new Map(); // bookId -> Set(collectionId)
-let currentCollectionId = null;     // фильтр
+let currentCollectionId = null;
+
+function escapeHtml(s = "") {
+  return s.replace(/[&<>"']/g, m => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
+  ));
+}
 
 async function loadCollectionsData() {
   collections = await listCollections(userId);
@@ -52,38 +62,24 @@ async function loadCollectionsData() {
   }
 }
 
-// 🔁 Основная функция отрисовки экрана с книгами
-window.renderMainScreen = async function () {
-  books = await getBooks(userId);
-  window.books = books;
-  const container = document.getElementById("app");
-  await loadCollectionsData();
-const visible = getVisibleBooks();
-  
-  function getVisibleBooks() {
+function getVisibleBooks() {
   let base = books.filter(b => b.status === currentTab);
   if (currentCollectionId) {
     base = base.filter(b => bookCollectionsMap.get(b.id)?.has(currentCollectionId));
   }
   return base;
 }
- // полки и связи книга↔полка
- collections = await listCollections(userId);
- const links = await listAllBookCollections(userId);
- bookCollectionsMap = new Map();
- for (const { book_id, collection_id } of links) {
-   if (!bookCollectionsMap.has(book_id)) bookCollectionsMap.set(book_id, new Set());
-   bookCollectionsMap.get(book_id).add(collection_id);
- }
 
- const visible = getVisibleBooks(); // статус + текущая полка
+
+// 🔁 Основная функция отрисовки экрана с книгами
+window.renderMainScreen = async function () {
+  books = await getBooks(userId);
+  window.books = books;
+  const container = document.getElementById("app");
+  await loadCollectionsData();
+  const visible = getVisibleBooks();
   
-   function escapeHtml(s = "") {
-  return s.replace(/[&<>"']/g, m => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
-  ));
-} 
-  container.innerHTML = `
+   container.innerHTML = `
     <h2>📘 Мой книжный трекер</h2>
 
     <div class="nav-tabs">
@@ -111,6 +107,7 @@ const visible = getVisibleBooks();
       <button onclick="showSearch()">🔍 Поиск</button>
     </div>
   `;
+  
 // клик по конкретной полке — фильтр
 container.querySelectorAll('.collections-bar .chip[data-id]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -167,15 +164,6 @@ function renderCollectionsBar() {
       `).join('')}
     </div>
   `;
-}
-
-
-function getVisibleBooks() {
-  let base = books.filter(b => b.status === currentTab);
-  if (currentCollectionId) {
-    base = base.filter(b => bookCollectionsMap.get(b.id)?.has(currentCollectionId));
-  }
-  return base;
 }
 
 
@@ -312,13 +300,45 @@ window.showAddForm = function() {
         <input type="date" id="finished_at" />
       </div>
 
+<div class="form-block">
+  <label>Полки</label>
+  <div id="col-select" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
+  <div style="display:flex;gap:8px;margin-top:6px;">
+    <input id="quickShelfName" placeholder="Быстрая новая полка" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;">
+    <button type="button" id="quickShelfBtn">＋ Создать</button>
+  </div>
+</div>
+
       <div class="form-buttons">
         <button type="submit" class="save-btn">💾 Сохранить</button>
         <button type="button" class="back-btn" onclick="renderMainScreen()">← Назад</button>
       </div>
     </form>
   `;
+// подгрузим полки и чекбоксы
+collections = await listCollections(userId);
+document.getElementById('col-select').innerHTML = collections.map(c => `
+  <label style="display:flex;align-items:center;gap:6px">
+    <input type="checkbox" value="${c.id}"/>
+    ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+  </label>
+`).join('');
 
+// быстрая полка
+document.getElementById('quickShelfBtn').onclick = async ()=>{
+  const name = document.getElementById('quickShelfName').value.trim();
+  if (!name) return;
+  const created = await createCollection(userId, name);
+  collections = await listCollections(userId);
+  document.getElementById('col-select').innerHTML = collections.map(c => `
+    <label style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" value="${c.id}" ${created?.id===c.id?'checked':''}/>
+      ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+    </label>
+  `).join('');
+};
+
+  
   // 🔍 Автопоиск книг
   document.getElementById("title").addEventListener("input", handleBookSearch);
 
@@ -413,9 +433,12 @@ window.submitAddForm = async function (e) {
 await checkAndInsertLibraryBook(title, author, coverUrl);
 
   // 📌 Добавляем книгу в трекер
-  await addBook(book);
-  currentTab = book.status;
-  renderMainScreen();
+ const newId = await addBook(book);
+ if (!newId) { alert('Не удалось создать книгу'); return; }
+ const ids = [...document.querySelectorAll('#col-select input:checked')].map(i=>i.value);
+ if (ids.length) await setBookCollections(userId, newId, ids);
+ currentTab = book.status;
+ await focusBookInList(newId);
 };
 
 // ✏️ Автозаполнение полей книги
@@ -515,7 +538,7 @@ window.editBook = async function(id) {
     </form>
   `;
 
-// выбранные полки книги
+// отметим полки, где уже есть книга
 const selected = new Set(await listBookCollections(id));
 document.getElementById('col-select').innerHTML = collections.map(c => `
   <label style="display:flex;align-items:center;gap:6px">
@@ -529,7 +552,6 @@ const chosen = [...document.querySelectorAll('#col-select input:checked')].map(i
 await setBookCollections(userId, id, chosen);
 await focusBookInList(id);
 
-  
 // подгружаем полки
 collections = await listCollections(userId);
 document.getElementById('col-select').innerHTML = collections.map(c => `
@@ -539,16 +561,17 @@ document.getElementById('col-select').innerHTML = collections.map(c => `
   </label>
 `).join('');
 
-// быстрая полка
+// «Быстрая полка» в редакторе (по желанию)
 document.getElementById('quickShelfBtn').onclick = async ()=>{
   const name = document.getElementById('quickShelfName').value.trim();
   if (!name) return;
-  const { id } = await createCollection(userId, name) || {};
+  const created = await createCollection(userId, name);
   collections = await listCollections(userId);
-  // перерисуем чекбоксы + сразу отметим созданную
+  const sel = new Set([...document.querySelectorAll('#col-select input:checked')].map(i=>i.value));
+  if (created?.id) sel.add(created.id);
   document.getElementById('col-select').innerHTML = collections.map(c => `
     <label style="display:flex;align-items:center;gap:6px">
-      <input type="checkbox" value="${c.id}" ${c.id===id?'checked':''}/>
+      <input type="checkbox" value="${c.id}" ${sel.has(c.id)?'checked':''}/>
       ${c.icon || '🏷️'} ${escapeHtml(c.name)}
     </label>
   `).join('');
