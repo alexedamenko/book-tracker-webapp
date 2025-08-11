@@ -20,8 +20,7 @@ import {
   setBookCollections,
   createCollection,
   renameCollection,
-  deleteCollection,
-  getBooksByCollection
+  deleteCollection
 } from './api.js';
 
 // ✅ Инициализация WebApp Telegram (и демо-режим локально)
