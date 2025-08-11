@@ -107,15 +107,6 @@ window.renderMainScreen = async function () {
     </div>
   `;
   
-// клик по конкретной полке — фильтр
-container.querySelectorAll('.collections-bar .chip[data-id]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const id = btn.dataset.id;
-    currentCollectionId = id ? id : null;
-    renderMainScreen();
-  });
-});
-
 // «Все полки» — открыть менеджер
 const manageBtn = container.querySelector('#manageCollectionsBtn');
 if (manageBtn) manageBtn.addEventListener('click', showCollections);
@@ -153,7 +144,7 @@ window.switchTab = function (tab) {
 function renderCollectionsBar() {
   return `
     <div class="collections-bar" style="display:flex; gap:8px; overflow:auto; padding:6px 0;">
-       <button id="manageCollectionsBtn" class="chip ${!currentCollectionId ? 'active' : ''}">
+      <button id="manageCollectionsBtn" class="chip ${!currentCollectionId ? 'active' : ''}">
         📚 Все полки
       </button>
       ${collections.map(c => `
@@ -164,6 +155,8 @@ function renderCollectionsBar() {
     </div>
   `;
 }
+
+
 
 
 // 📷 Зум обложки (одна функция вместо трёх)
@@ -1142,16 +1135,28 @@ await saveComment(bookId, userId, newComment);
 await focusBookInList(bookId);
  };
 
-(function bindCollectionsClicksOnce() {
-  const container = document.getElementById('app');
-  if (!container || container.dataset.collectionsBound) return;
-  container.dataset.collectionsBound = '1';
+(function enableCollectionsDelegation() {
+  const root = document.getElementById('app');
+  if (!root || root.dataset.collectionsBound === '1') return;
+  root.dataset.collectionsBound = '1';
 
-  container.addEventListener('click', (e) => {
+  root.addEventListener('click', (e) => {
     const chip = e.target.closest('.collections-bar .chip');
-    if (!chip) return;
-    const id = chip.dataset.id;          // "" для «Все полки»
-    currentCollectionId = id ? id : null; // null → снимаем фильтр
+    if (!chip) return; // кликнули не по чипу
+
+    // Кнопка «Все полки» — открываем менеджер
+    if (chip.id === 'manageCollectionsBtn') {
+      e.preventDefault();
+      e.stopPropagation();
+      showCollections();
+      return;
+    }
+
+    // Обычная полка — фильтруем ленту по её id
+    const id = chip.getAttribute('data-id'); // у полок есть, у «Все полки» нет
+    if (id == null) return;
+
+    currentCollectionId = id || null; // пустое -> показать все
     renderMainScreen();
   });
 })();
