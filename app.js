@@ -244,7 +244,7 @@ window.openBook = function (id) {
 
 
 // ➕ Показ формы добавления книги
-window.showAddForm = function() {
+window.showAddForm = async function() {
   const container = document.getElementById("app");
   container.innerHTML = `
     <h2>➕ Добавление книги</h2>
@@ -538,29 +538,6 @@ window.editBook = async function(id) {
     </form>
   `;
 
-// отметим полки, где уже есть книга
-const selected = new Set(await listBookCollections(id));
-document.getElementById('col-select').innerHTML = collections.map(c => `
-  <label style="display:flex;align-items:center;gap:6px">
-    <input type="checkbox" value="${c.id}" ${selected.has(c.id)?'checked':''}/>
-    ${c.icon || '🏷️'} ${escapeHtml(c.name)}
-  </label>
-`).join('');
-
-// при сохранении (после updateBook)
-const chosen = [...document.querySelectorAll('#col-select input:checked')].map(i=>i.value);
-await setBookCollections(userId, id, chosen);
-await focusBookInList(id);
-
-// подгружаем полки
-collections = await listCollections(userId);
-document.getElementById('col-select').innerHTML = collections.map(c => `
-  <label style="display:flex;align-items:center;gap:6px">
-    <input type="checkbox" value="${c.id}"/>
-    ${c.icon || '🏷️'} ${escapeHtml(c.name)}
-  </label>
-`).join('');
-
 // «Быстрая полка» в редакторе (по желанию)
 document.getElementById('quickShelfBtn').onclick = async ()=>{
   const name = document.getElementById('quickShelfName').value.trim();
@@ -577,17 +554,7 @@ document.getElementById('quickShelfBtn').onclick = async ()=>{
   `).join('');
 };
   
-  // подгружаем выбранные полки и рендерим чекбоксы
-  const selected = new Set(await listBookCollections(book.id));
-  const colsHtml = collections.map(c => `
-    <label style="display:flex;align-items:center;gap:6px">
-      <input type="checkbox" value="${c.id}" ${selected.has(c.id) ? 'checked' : ''}/>
-      ${c.icon || '🏷️'} ${escapeHtml(c.name)}
-    </label>
-  `).join('');
-  document.getElementById('col-select').innerHTML = colsHtml;
-
-  // превью обложки
+    // превью обложки
   document.getElementById("cover_file").addEventListener("change", (e) => {
     const file = e.target.files[0];
     const preview = document.getElementById("coverPreview");
@@ -634,24 +601,7 @@ document.getElementById('quickShelfBtn').onclick = async ()=>{
     };
 
     await updateBook(id, updated);
-    
-const newId = await addBook({
-  user_id: userId,
-  title, author, cover_url, status, rating, added_at, started_at, finished_at, comment: ''
-});
-if (!newId) { alert('Не удалось создать книгу'); return; }
-
-// соберём выбранные полки
-const ids = [...document.querySelectorAll('#col-select input:checked')].map(i=>i.value);
-if (ids.length) { await setBookCollections(userId, newId, ids); }
-
-await focusBookInList(newId);
-    // сохраняем выбранные полки
-    const ids = [...document.querySelectorAll('#col-select input:checked')].map(i => i.value);
-    await setBookCollections(userId, book.id, ids);
-
-    await focusBookInList(book.id || window.lastOpenedBookId);
-  });
+      });
 };
 
 
