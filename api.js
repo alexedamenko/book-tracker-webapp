@@ -79,12 +79,13 @@ export async function searchBooks(query) {
   return await res.json();
 }
 export async function addBook(book) {
-  const res = await fetch('/api/handler?route=addBook', {
+  const r = await fetch('/api/handler?route=addBook', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(book)
   });
-  if (!res.ok) console.error("Ошибка при добавлении книги");
+  const j = await r.json();
+  return j?.id || null;
 }
 
 export async function deleteImageFromStorage(bucket, fileName) {
