@@ -388,3 +388,9 @@ toastui-editor-popup {
     border-color: rgba(99,102,241,.5);
   }
 }
+.chip.ghost {
+  background: transparent;
+  border-color: #e5e7eb;
+  opacity: .8;
+}
+.chip.ghost:hover { opacity: 1; }
