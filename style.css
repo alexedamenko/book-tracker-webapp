@@ -340,4 +340,6 @@ toastui-editor-popup {
 .chip.active { background:#eef2ff; border-color:#c7d2fe; }
 .chip.small { padding:2px 8px; font-size:12px; }
 .chips-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
-
+  
+.collections-bar .chip { cursor: pointer; }
+.collections-bar .chip.active { background:#eef2ff; border-color:#c7d2fe; }
