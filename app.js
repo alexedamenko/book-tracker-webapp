@@ -519,7 +519,6 @@ window.editBook = async function(id) {
         <label>Дата окончания</label>
         <input type="date" id="finished_at" value="${book.finished_at || ''}" />
       </div>
-
             
 <div class="form-block">
   <label>Полки</label>
@@ -536,7 +535,16 @@ window.editBook = async function(id) {
       </div>
     </form>
   `;
-
+// подгружаем список полок и отмечаем те, где книга уже состоит
+collections = await listCollections(userId);
+const selected = new Set(await listBookCollections(id));
+document.getElementById('col-select').innerHTML = collections.map(c => `
+  <label style="display:flex;align-items:center;gap:6px">
+    <input type="checkbox" value="${c.id}" ${selected.has(c.id) ? 'checked' : ''}/>
+    ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+  </label>
+`).join('');
+  
 // «Быстрая полка» в редакторе (по желанию)
 document.getElementById('quickShelfBtn').onclick = async ()=>{
   const name = document.getElementById('quickShelfName').value.trim();
@@ -600,6 +608,10 @@ document.getElementById('quickShelfBtn').onclick = async ()=>{
     };
 
     await updateBook(id, updated);
+    // сохранить выбор полок и вернуться к карточке
+const ids = [...document.querySelectorAll('#col-select input:checked')].map(i => i.value);
+await setBookCollections(userId, id, ids);
+await focusBookInList(id);
       });
 };
 
