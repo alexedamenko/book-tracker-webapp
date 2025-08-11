@@ -131,7 +131,7 @@ window.switchTab = function (tab) {
 function renderCollectionsBar() {
   return `
     <div class="collections-bar" style="display:flex; gap:8px; overflow:auto; padding:6px 0;">
-      <button class="chip ${!currentCollectionId ? 'active' : ''}" data-id="">
+      <button class="chip ${currentCollectionId ? '' : 'active'}" data-id="">
         📚 Все полки
       </button>
       ${collections.map(c => `
@@ -143,6 +143,7 @@ function renderCollectionsBar() {
   `;
 }
 
+
 function getVisibleBooks() {
   let base = books.filter(b => b.status === currentTab);
   if (currentCollectionId) {
@@ -150,6 +151,7 @@ function getVisibleBooks() {
   }
   return base;
 }
+
 
 // 📷 Зум обложки (одна функция вместо трёх)
 window.showZoom = function (url) {
@@ -1010,3 +1012,16 @@ await saveComment(bookId, userId, newComment);
 await focusBookInList(bookId);
  };
 
+(function bindCollectionsClicksOnce() {
+  const container = document.getElementById('app');
+  if (!container || container.dataset.collectionsBound) return;
+  container.dataset.collectionsBound = '1';
+
+  container.addEventListener('click', (e) => {
+    const chip = e.target.closest('.collections-bar .chip');
+    if (!chip) return;
+    const id = chip.dataset.id;          // "" для «Все полки»
+    currentCollectionId = id ? id : null; // null → снимаем фильтр
+    renderMainScreen();
+  });
+})();
