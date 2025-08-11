@@ -1142,21 +1142,26 @@ await focusBookInList(bookId);
 
   root.addEventListener('click', (e) => {
     const chip = e.target.closest('.collections-bar .chip');
-    if (!chip) return; // кликнули не по чипу
+    if (!chip) return;
 
-    // Кнопка «Все полки» — открываем менеджер
+    // «Все полки» — просто снять фильтр и перерисовать
     if (chip.id === 'manageCollectionsBtn') {
-      e.preventDefault();
-      e.stopPropagation();
-      showCollections();
+      currentCollectionId = null;          // 👈 показываем все книги
+      renderMainScreen();
       return;
     }
 
-    // Обычная полка — фильтруем ленту по её id
-    const id = chip.getAttribute('data-id'); // у полок есть, у «Все полки» нет
-    if (id == null) return;
+    // Обычная полка — ТУТ логика «переключателя»
+    const id = chip.getAttribute('data-id');
+    if (!id) return;
 
-    currentCollectionId = id || null; // пустое -> показать все
+    // если повторный клик по активной — снимаем фильтр
+    if (String(currentCollectionId) === String(id)) {
+      currentCollectionId = null;          // 👈 снять фильтр
+    } else {
+      currentCollectionId = id;            // 👈 применить фильтр по этой полке
+    }
     renderMainScreen();
   });
 })();
+
