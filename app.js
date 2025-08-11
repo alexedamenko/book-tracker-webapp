@@ -42,11 +42,31 @@ let collections = [];
 let bookCollectionsMap = new Map(); // bookId -> Set(collectionId)
 let currentCollectionId = null;     // фильтр
 
+async function loadCollectionsData() {
+  collections = await listCollections(userId);
+  const pairs = await listAllBookCollections(userId);
+  bookCollectionsMap = new Map();
+  for (const { book_id, collection_id } of pairs) {
+    if (!bookCollectionsMap.has(book_id)) bookCollectionsMap.set(book_id, new Set());
+    bookCollectionsMap.get(book_id).add(collection_id);
+  }
+}
+
 // 🔁 Основная функция отрисовки экрана с книгами
 window.renderMainScreen = async function () {
   books = await getBooks(userId);
   window.books = books;
   const container = document.getElementById("app");
+  await loadCollectionsData();
+const visible = getVisibleBooks();
+  
+  function getVisibleBooks() {
+  let base = books.filter(b => b.status === currentTab);
+  if (currentCollectionId) {
+    base = base.filter(b => bookCollectionsMap.get(b.id)?.has(currentCollectionId));
+  }
+  return base;
+}
  // полки и связи книга↔полка
  collections = await listCollections(userId);
  const links = await listAllBookCollections(userId);
@@ -91,12 +111,18 @@ window.renderMainScreen = async function () {
       <button onclick="showSearch()">🔍 Поиск</button>
     </div>
   `;
-container.querySelectorAll('.collections-bar .chip').forEach(btn => {
-  btn.addEventListener('click', () => {
-    currentCollectionId = btn.dataset.id || null;
+// клик по конкретной полке — фильтр
+container.querySelectorAll('.collections-bar .chip[data-id]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const id = btn.dataset.id;
+    currentCollectionId = id ? id : null;
     renderMainScreen();
   });
 });
+
+// «Все полки» — открыть менеджер
+const manageBtn = container.querySelector('#manageCollectionsBtn');
+if (manageBtn) manageBtn.addEventListener('click', showCollections);
   
   // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
@@ -131,7 +157,7 @@ window.switchTab = function (tab) {
 function renderCollectionsBar() {
   return `
     <div class="collections-bar" style="display:flex; gap:8px; overflow:auto; padding:6px 0;">
-      <button class="chip ${currentCollectionId ? '' : 'active'}" data-id="">
+      <button id="manageCollectionsBtn" class="chip ${!currentCollectionId ? 'active' : ''}" data-id="">
         📚 Все полки
       </button>
       ${collections.map(c => `
@@ -472,10 +498,15 @@ window.editBook = async function(id) {
         <input type="date" id="finished_at" value="${book.finished_at || ''}" />
       </div>
 
-      <div id="collectionsBlock" class="form-block">
-        <label>Полки</label>
-        <div id="col-select" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
-      </div>
+            
+<div class="form-block">
+  <label>Полки</label>
+  <div id="col-select" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
+  <div style="display:flex;gap:8px;margin-top:6px;">
+    <input id="quickShelfName" placeholder="Быстрая новая полка" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;">
+    <button type="button" id="quickShelfBtn">＋ Создать</button>
+  </div>
+</div>
 
       <div class="form-buttons">
         <button type="submit" class="save-btn">💾 Сохранить</button>
@@ -484,6 +515,45 @@ window.editBook = async function(id) {
     </form>
   `;
 
+// выбранные полки книги
+const selected = new Set(await listBookCollections(id));
+document.getElementById('col-select').innerHTML = collections.map(c => `
+  <label style="display:flex;align-items:center;gap:6px">
+    <input type="checkbox" value="${c.id}" ${selected.has(c.id)?'checked':''}/>
+    ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+  </label>
+`).join('');
+
+// при сохранении (после updateBook)
+const chosen = [...document.querySelectorAll('#col-select input:checked')].map(i=>i.value);
+await setBookCollections(userId, id, chosen);
+await focusBookInList(id);
+
+  
+// подгружаем полки
+collections = await listCollections(userId);
+document.getElementById('col-select').innerHTML = collections.map(c => `
+  <label style="display:flex;align-items:center;gap:6px">
+    <input type="checkbox" value="${c.id}"/>
+    ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+  </label>
+`).join('');
+
+// быстрая полка
+document.getElementById('quickShelfBtn').onclick = async ()=>{
+  const name = document.getElementById('quickShelfName').value.trim();
+  if (!name) return;
+  const { id } = await createCollection(userId, name) || {};
+  collections = await listCollections(userId);
+  // перерисуем чекбоксы + сразу отметим созданную
+  document.getElementById('col-select').innerHTML = collections.map(c => `
+    <label style="display:flex;align-items:center;gap:6px">
+      <input type="checkbox" value="${c.id}" ${c.id===id?'checked':''}/>
+      ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+    </label>
+  `).join('');
+};
+  
   // подгружаем выбранные полки и рендерим чекбоксы
   const selected = new Set(await listBookCollections(book.id));
   const colsHtml = collections.map(c => `
@@ -541,7 +611,18 @@ window.editBook = async function(id) {
     };
 
     await updateBook(id, updated);
+    
+const newId = await addBook({
+  user_id: userId,
+  title, author, cover_url, status, rating, added_at, started_at, finished_at, comment: ''
+});
+if (!newId) { alert('Не удалось создать книгу'); return; }
 
+// соберём выбранные полки
+const ids = [...document.querySelectorAll('#col-select input:checked')].map(i=>i.value);
+if (ids.length) { await setBookCollections(userId, newId, ids); }
+
+await focusBookInList(newId);
     // сохраняем выбранные полки
     const ids = [...document.querySelectorAll('#col-select input:checked')].map(i => i.value);
     await setBookCollections(userId, book.id, ids);
@@ -990,6 +1071,71 @@ if (rect.left < 0 || rect.right > window.innerWidth) {
   }
 };
 
+window.showCollections = async function() {
+  // на всякий: освежим список полок
+  collections = await listCollections(userId);
+
+  const container = document.getElementById('app');
+  container.innerHTML = `
+    <h2>🏷️ Полки</h2>
+
+    <div style="display:flex;gap:8px; margin-bottom:12px;">
+      <input id="newShelfName" placeholder="Новая полка (например: Классика)" style="flex:1;padding:10px;border-radius:8px;border:1px solid #ddd;">
+      <button id="createShelfBtn">＋ Создать</button>
+    </div>
+
+    <div id="shelvesList">
+      ${collections.length ? collections.map(c => `
+        <div class="shelf-row" data-id="${c.id}" style="display:flex;align-items:center;gap:8px; padding:10px; border:1px solid #eee; border-radius:8px; margin-bottom:8px;">
+          <div style="flex:1; font-weight:600;">${c.icon || '🏷️'} ${escapeHtml(c.name)}</div>
+          <button class="rename">Переименовать</button>
+          <button class="delete" style="color:#b91c1c;">Удалить</button>
+          <button class="open">Открыть</button>
+        </div>
+      `).join('') : `<div style="opacity:.7">Полок пока нет</div>`}
+    </div>
+
+    <div class="footer-buttons" style="margin-top:12px;">
+      <button onclick="renderMainScreen()">← Назад</button>
+    </div>
+  `;
+
+  // создать
+  document.getElementById('createShelfBtn').onclick = async () => {
+    const name = document.getElementById('newShelfName').value.trim();
+    if (!name) return;
+    const created = await createCollection(userId, name);
+    if (created?.id) {
+      collections = await listCollections(userId);
+      showCollections();
+    }
+  };
+
+  // делегирование
+  container.querySelector('#shelvesList').addEventListener('click', async (e)=>{
+    const row = e.target.closest('.shelf-row'); if (!row) return;
+    const id = row.dataset.id;
+
+    if (e.target.classList.contains('rename')) {
+      const cur = collections.find(x=>x.id===id);
+      const name = prompt('Новое название полки', cur?.name || '');
+      if (name && name.trim()) { await renameCollection(id, { name: name.trim() }); showCollections(); }
+      return;
+    }
+    if (e.target.classList.contains('delete')) {
+      if (confirm('Удалить полку? Книги не удалятся.')) { await deleteCollection(id); showCollections(); }
+      return;
+    }
+    if (e.target.classList.contains('open')) {
+      currentCollectionId = id; 
+      renderMainScreen();
+      return;
+    }
+  });
+};
+
+
+
 
 // сохранение комментария
 window.saveComment = async function(bookId) {
@@ -1005,7 +1151,7 @@ window.saveComment = async function(bookId) {
   // удаляем их из storage
   for (const imgUrl of removedImages) {
     await deleteImageFromSupabase(imgUrl);
-  }
+  };
 
   // сохраняем новый комментарий
 await saveComment(bookId, userId, newComment);
