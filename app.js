@@ -153,7 +153,7 @@ window.switchTab = function (tab) {
 function renderCollectionsBar() {
   return `
     <div class="collections-bar" style="display:flex; gap:8px; overflow:auto; padding:6px 0;">
-      <button id="manageCollectionsBtn" class="chip ${!currentCollectionId ? 'active' : ''}" data-id="">
+       <button id="manageCollectionsBtn" class="chip ${!currentCollectionId ? 'active' : ''}">
         📚 Все полки
       </button>
       ${collections.map(c => `
