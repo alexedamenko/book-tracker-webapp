@@ -344,115 +344,63 @@ toastui-editor-popup {
 .collections-bar .chip { cursor: pointer; }
 .collections-bar .chip.active { background:#eef2ff; border-color:#c7d2fe; }
   
-/* Полки: единый вид на мобилке */
+/* ===== Полки (чипы) — одинаково в светлой/тёмной теме ===== */
 .collections-bar {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding: 8px 0;
 }
-  
-/* приводим к «пилюле» одной высоты */
-.collections-bar .chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  min-height: 36px;
-  border-radius: 999px;
-  border: 1px solid var(--tg-theme-hint-color, #d1d5db);
-  background: var(--tg-theme-secondary-bg-color, #f4f6fb);
+.collections-bar .chip{
+  appearance: none; -webkit-appearance: none;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; min-height: 36px;
+  border-radius: 999px !important;                   /* не круг, а «пилюля» */
+  border: 1px solid var(--tg-theme-hint-color, #d1d5db) !important;
+  background: var(--tg-theme-secondary-bg-color, #f4f6fb) !important;
   color: var(--tg-theme-text-color, #111) !important;
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 1;               /* эмодзи не растягивает высоту */
-  box-shadow: none;
+  font-weight: 600; font-size: 14px; line-height: 1;
+  box-shadow: none; cursor: pointer;
 }
-
-/* активный чип — заметный, но не «кричащий» */
-.collections-bar .chip.active {
-  background: var(--tg-theme-button-color, #e0e7ff);
-  border-color: var(--tg-theme-button-color, #a5b4fc);
-  color: var(--tg-theme-button-text-color, #111) !important;
+.collections-bar .chip.active{
+  background: rgba(99,102,241,.15) !important;       /* мягкий акцент */
+  border-color: rgba(99,102,241,.45) !important;
 }
-
-/* наведение/фокус (видно и на десктопе) */
-.collections-bar .chip:hover { filter: brightness(0.98); }
-.collections-bar .chip:focus-visible {
-  outline: 2px solid rgba(59,130,246,.6);
-  outline-offset: 2px;
+.collections-bar .chip.ghost{
+  background: transparent !important;
+  border-color: var(--tg-theme-hint-color, #e5e7eb) !important;
+  opacity: .9;
 }
-  
-/* «шестерёнка»/ghost, если есть */
-.collections-bar .chip.ghost {
-  background: transparent;
-  border-color: #e5e7eb;
-  opacity: .85;
-}
-  .collections-bar .chip.ghost:hover { opacity: 1; }
-  
-/* если у тебя где-то глобально button { color:#fff } — перебьём локально */
-.collections-bar .chip { color: var(--tg-theme-text-color, #111) !important; }
-
-/* Тёмная тема (если вдруг Telegram переменные недоступны) */
-@media (prefers-color-scheme: dark) {
-  .collections-bar .chip {
-    background: var(--tg-theme-secondary-bg-color, #1f2937);
+@media (prefers-color-scheme: dark){
+  .collections-bar .chip{
+    background: var(--tg-theme-secondary-bg-color, #1f2937) !important;
+    border-color: var(--tg-theme-hint-color, #374151) !important;
     color: var(--tg-theme-text-color, #e5e7eb) !important;
-    border-color: var(--tg-theme-hint-color, #374151);
   }
-  .collections-bar .chip.active {
-    background: rgba(99,102,241,.25);
-    color: #e5e7eb !important;
-    border-color: rgba(99,102,241,.5);
+  .collections-bar .chip.active{
+    background: rgba(99,102,241,.25) !important;
+    border-color: rgba(99,102,241,.55) !important;
   }
-  }
-  
-/* Сортировка: ровное выравнивание на мобилке */
-.sort-bar{
-  display:flex;
-  align-items:center;           /* центр по вертикали */
-  gap:10px;
-  flex-wrap:wrap;               /* если не помещается — переносится красиво */
-  margin:8px 0 12px;
-}
-.sort-label{
-  color:var(--tg-theme-text-color,#111);
-  font-weight:600;
-}
-.sort-controls{
-  display:flex;
-  align-items:center;           /* селект и стрелка по одной линии */
-  gap:6px;
 }
 
-/* одинаковая высота у селекта и кнопки-стрелки */
+/* ===== Панель сортировки — читаемый лейбл и единая высота ===== */
+.sort-bar{
+  display:flex; align-items:center; gap:8px;
+  margin: 8px 0 12px;
+}
+.sort-bar label{ color: var(--tg-theme-hint-color, #6b7280); } /* «Сортировка:» видно */
 .sort-select{
-  padding:8px 12px;
-  height:36px;                  /* зафиксировали высоту */
-  border:1px solid var(--tg-theme-hint-color,#e5e7eb);
+  height: 40px; padding: 0 12px;
+  border:1px solid var(--tg-theme-hint-color, #e5e7eb);
   border-radius:8px;
-  background:var(--tg-theme-bg-color,#fff);
-  color:var(--tg-theme-text-color,#111);
+  background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #111);
 }
 .sort-arrow{
-  width:36px; height:36px;      /* ровно как у селекта */
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  border:1px solid var(--tg-theme-hint-color,#e5e7eb);
-  border-radius:8px;
-  background:var(--tg-theme-bg-color,#fff);
-  color:var(--tg-theme-text-color,#111);
-  font-weight:700; line-height:1;
-  padding:0; cursor:pointer;
+  width:40px; height:40px; line-height:1; font-weight:700;
+  display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid var(--tg-theme-hint-color, #e5e7eb);
+  border-radius:8px; background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #111); cursor:pointer; padding:0;
 }
-.sort-arrow:hover{ filter:brightness(.98); }
-.sort-arrow:active{ transform:translateY(1px); }
-
-/* чуть крупнее на маленьких экранах */
-@media (max-width:420px){
-  .sort-bar{ gap:8px; }
-  .sort-select{ height:40px; padding:10px 12px; }
-  .sort-arrow{ width:40px; height:40px; }
-}
+.sort-arrow:hover{ filter: brightness(.98); }
