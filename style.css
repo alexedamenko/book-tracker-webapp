@@ -407,3 +407,7 @@ toastui-editor-popup {
   background: #fff;
   cursor: pointer;
 }
+.sort-bar .sort-arrow{
+  padding: 4px 8px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer;
+  line-height:1;
+}
