@@ -146,7 +146,7 @@ window.renderMainScreen = async function () {
     </div>
 
     <div class="footer-buttons">
-      <button id="exportBtn">📤Export</button>
+      <button id="exportBtn">📤 Export</button>
       <div id="formatMenu" class="hidden">
         <div class="format-option" data-format="csv">CSV</div>
         <div class="format-option" data-format="json">JSON</div>
@@ -205,11 +205,11 @@ function renderCollectionsBar() {
     <div class="collections-bar" style="display:flex; gap:8px; overflow:auto; padding:6px 0;">
       <!-- ВАЖНО: у «Все полки» НЕТ data-id -->
       <button id="manageCollectionsBtn" class="chip ${!currentCollectionId ? 'active' : ''}">
-        📚 Все полки
+        Все полки
       </button>
       ${collections.map(c => `
         <button class="chip ${String(currentCollectionId) === String(c.id) ? 'active' : ''}" data-id="${c.id}">
-          ${c.icon || '🏷️'} ${escapeHtml(c.name)}
+          ${c.icon || ''} ${escapeHtml(c.name)}
         </button>
       `).join('')}
       <!-- отдельная кнопка для открытия менеджера -->
