@@ -222,25 +222,28 @@ function renderSortBar() {
   const k = sortKey; const d = sortDir;
   return `
     <div class="sort-bar">
-      <label for="sortKey" class="sr-only">Сортировка</label>
-      <select id="sortKey" class="sort-select">
-        <option value="auto"        ${k==='auto'?'selected':''}>Авто (по вкладке)</option>
-        <option value="title"       ${k==='title'?'selected':''}>Название (А→Я)</option>
-        <option value="author"      ${k==='author'?'selected':''}>Автор (А→Я)</option>
-        <option value="rating"      ${k==='rating'?'selected':''}>Оценка</option>
-        <option value="added_at"    ${k==='added_at'?'selected':''}>Дата добавления</option>
-        <option value="finished_at" ${k==='finished_at'?'selected':''}>Дата завершения</option>
-      </select>
-      <button type="button"
-              id="sortDirToggle"
-              class="sort-arrow"
-              title="${d==='asc'?'По возрастанию':'По убыванию'}"
-              aria-label="Направление сортировки">
-        ${d === 'asc' ? '↑' : '↓'}
-      </button>
+      <span class="sort-label">Сортировка:</span>
+      <div class="sort-controls">
+        <select id="sortKey" class="sort-select">
+          <option value="auto"        ${k==='auto'?'selected':''}>Авто (по вкладке)</option>
+          <option value="title"       ${k==='title'?'selected':''}>Название (А→Я)</option>
+          <option value="author"      ${k==='author'?'selected':''}>Автор (А→Я)</option>
+          <option value="rating"      ${k==='rating'?'selected':''}>Оценка</option>
+          <option value="added_at"    ${k==='added_at'?'selected':''}>Дата добавления</option>
+          <option value="finished_at" ${k==='finished_at'?'selected':''}>Дата завершения</option>
+        </select>
+        <button type="button"
+                id="sortDirToggle"
+                class="sort-arrow"
+                title="${d==='asc'?'По возрастанию':'По убыванию'}"
+                aria-label="Направление сортировки">
+          ${d === 'asc' ? '↑' : '↓'}
+        </button>
+      </div>
     </div>
   `;
 }
+
 
 
 
