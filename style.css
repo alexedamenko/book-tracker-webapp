@@ -387,6 +387,11 @@ toastui-editor-popup {
     color: #e5e7eb !important;
     border-color: rgba(99,102,241,.5);
   }
+  .sort-bar .chip {
+    background: rgba(99,102,241,.25);
+    color: #e5e7eb !important;
+    border-color: rgba(99,102,241,.5);
+  }
 }
 .chip.ghost {
   background: transparent;
