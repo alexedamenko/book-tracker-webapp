@@ -394,3 +394,11 @@ toastui-editor-popup {
   opacity: .8;
 }
 .chip.ghost:hover { opacity: 1; }
+
+.sort-bar .chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+}
