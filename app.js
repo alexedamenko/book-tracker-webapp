@@ -113,6 +113,18 @@ function getVisibleBooks() {
   return applySort(base); // 👈 сортируем тут
 }
 
+const COLLECTION_MEMO_KEY = 'ui_current_collection';
+
+function loadCurrentCollection() {
+  const v = localStorage.getItem(COLLECTION_MEMO_KEY);
+  currentCollectionId = v && v !== 'null' && v !== '' ? v : null;
+}
+
+function saveCurrentCollection() {
+  if (currentCollectionId) localStorage.setItem(COLLECTION_MEMO_KEY, currentCollectionId);
+  else localStorage.removeItem(COLLECTION_MEMO_KEY);
+}
+
 
 
 // 🔁 Основная функция отрисовки экрана с книгами
@@ -121,6 +133,9 @@ window.renderMainScreen = async function () {
   window.books = books;
   const container = document.getElementById("app");
   await loadCollectionsData();
+  
+  // восстановим выбранную полку (если есть сохранённая)
+loadCurrentCollection();
   
   // 🔑 загрузить сорт-настройки для текущих (вкладка, полка)
   loadSortStateForContext();
@@ -1267,11 +1282,12 @@ window.showCollections = async function() {
       if (confirm('Удалить полку? Книги не удалятся.')) { await deleteCollection(id); showCollections(); }
       return;
     }
-    if (e.target.classList.contains('open')) {
-      currentCollectionId = id; 
-      renderMainScreen();
-      return;
-    }
+if (e.target.classList.contains('open')) {
+  currentCollectionId = id;
+  saveCurrentCollection();          // 👈 сохраняем
+  renderMainScreen();
+  return;
+}
   });
 };
 
@@ -1310,18 +1326,19 @@ await focusBookInList(bookId);
 
     // «Все полки» — ТОЛЬКО снять фильтр (не открывать менеджер)
     if (chip.id === 'manageCollectionsBtn') {
-      e.preventDefault();
-      e.stopPropagation();
-      currentCollectionId = null;
-      renderMainScreen();
-      return;
-    }
+  e.preventDefault();
+  currentCollectionId = null;
+  saveCurrentCollection();          // 👈 сохраняем
+  renderMainScreen();
+  return;
+}
 
-    // Клик по обычной полке — вкл/выкл фильтр (переключатель)
-    const id = chip.getAttribute('data-id');
-    if (!id) return;
-    currentCollectionId = (String(currentCollectionId) === String(id)) ? null : id;
-    renderMainScreen();
+// Обычная полка — переключатель
+const id = chip.getAttribute('data-id');
+if (!id) return;
+currentCollectionId = (String(currentCollectionId) === String(id)) ? null : id;
+saveCurrentCollection();            // 👈 сохраняем
+renderMainScreen();
   });
 
   // Отдельная кнопка для менеджера полок (см. ниже в разметке)
