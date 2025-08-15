@@ -40,18 +40,49 @@ if (tg && tg.initDataUnsafe?.user?.id) {
 let books = [];
 let currentTab = "read";
 
-// === СОРТИРОВКА (глобальные) ===
-const SORT_DEFAULT = 'auto';     // авто: read → finished_at, иначе → added_at
-let sortKey = localStorage.getItem('sort_key') || SORT_DEFAULT; // 'auto'|'title'|'author'|'rating'|'added_at'|'finished_at'
-let sortDir = localStorage.getItem('sort_dir') || 'desc';       // 'asc' | 'desc'
+// ==== СОРТИРОВКА: глобальные настройки/хелперы ====
+const SORT_DEFAULT = 'auto';    // auto: read→finished_at, reading→started_at, want→added_at
+let sortKey = SORT_DEFAULT;
+let sortDir = 'desc';
 
-// нормализация строки для сортировки (регистр, ё/е, лишние пробелы)
-function normStr(s) {
+// контекст (вкладка + полка) → ключ для localStorage
+function sortCtxKey() {
+  const tab = String(currentTab || 'all');
+  const col = String(currentCollectionId || 'all');
+  return `sort:${tab}:${col}`;
+}
+function loadSortStateForContext() {
+  const raw = localStorage.getItem(sortCtxKey());
+  if (!raw) { sortKey = SORT_DEFAULT; sortDir = 'desc'; return; }
+  try {
+    const j = JSON.parse(raw);
+    sortKey = j?.key || SORT_DEFAULT;
+    sortDir = j?.dir || 'desc';
+  } catch { sortKey = SORT_DEFAULT; sortDir = 'desc'; }
+}
+function saveSortStateForContext() {
+  localStorage.setItem(sortCtxKey(), JSON.stringify({ key: sortKey, dir: sortDir }));
+}
+
+// умная нормализация строк (регистр, ё→е, убираем кавычки/дефисы/пунктуацию)
+function normStrSmart(s) {
   return String(s ?? '')
     .toLowerCase()
     .replaceAll('ё', 'е')
+    .replace(/[«»"“”'’`]/g, '')     // кавычки
+    .replace(/[–—-]/g, ' ')          // длинные/короткие дефисы → пробел
+    .replace(/[.,;:()!?]/g, ' ')     // пунктуация
+    .replace(/\s+/g, ' ')
     .trim();
 }
+
+// collator для аккуратного А→Я (русский), игнор пунктуации/регистр, натуральные числа
+const collRU = new Intl.Collator('ru', {
+  sensitivity: 'base',
+  ignorePunctuation: true,
+  numeric: true
+});
+
 
 // 📚 Хранилище текущего списка полок
 let collections = [];
@@ -90,6 +121,9 @@ window.renderMainScreen = async function () {
   window.books = books;
   const container = document.getElementById("app");
   await loadCollectionsData();
+  
+  // 🔑 загрузить сорт-настройки для текущих (вкладка, полка)
+  loadSortStateForContext();
   const visible = getVisibleBooks();
   
    container.innerHTML = `
@@ -124,21 +158,18 @@ window.renderMainScreen = async function () {
 
   // смена ключа сортировки
 const sel = container.querySelector('#sortKey');
-if (sel) sel.addEventListener('change', () => {
-  sortKey = sel.value;
-  localStorage.setItem('sort_key', sortKey);
+  if (sel) sel.addEventListener('change', () => {
+    sortKey = sel.value;
+    saveSortStateForContext();   // 💾 запомнить для этой (вкладка+полка)
   renderMainScreen();
 });
-
-// переключатель направления
-const dirBtn = container.querySelector('#sortDirBtn');
-if (dirBtn) dirBtn.addEventListener('click', () => {
-  sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
-  localStorage.setItem('sort_dir', sortDir);
-  renderMainScreen();
-});
-
-  
+const dirBtn = container.querySelector('#sortDirToggle');
+  if (dirBtn) dirBtn.addEventListener('click', () => {
+    sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+    saveSortStateForContext();   // 💾
+    renderMainScreen();
+  });
+ 
   // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
     document.getElementById("formatMenu").classList.toggle("hidden");
@@ -191,7 +222,12 @@ function renderSortBar() {
   const k = sortKey; const d = sortDir;
   return `
     <div class="sort-bar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px;">
-      <label style="opacity:.8;">Сортировка:</label>
+      <label for="sortKey" style="opacity:.8;display:flex;align-items:center;gap:6px;">
+        Сортировка
+        <button type="button" id="sortDirToggle" title="Направление" class="sort-arrow" aria-label="Направление">
+          ${d === 'asc' ? '↑' : '↓'}
+        </button>
+      </label>
       <select id="sortKey" style="padding:8px;border:1px solid #ddd;border-radius:8px;">
         <option value="auto"        ${k==='auto'?'selected':''}>Авто (по вкладке)</option>
         <option value="title"       ${k==='title'?'selected':''}>Название (А→Я)</option>
@@ -200,69 +236,83 @@ function renderSortBar() {
         <option value="added_at"    ${k==='added_at'?'selected':''}>Дата добавления</option>
         <option value="finished_at" ${k==='finished_at'?'selected':''}>Дата завершения</option>
       </select>
-      <button id="sortDirBtn" class="chip" data-dir="${d}">
-        ${d==='asc' ? '↑ по возрастанию' : '↓ по убыванию'}
-      </button>
     </div>
   `;
 }
 
 
+
 function applySort(list) {
-  const effKey = (sortKey === 'auto')
-    ? (currentTab === 'read' ? 'finished_at' : 'added_at')
-    : sortKey;
+  // авто-режим: по вкладке
+  let effKey = sortKey;
+  if (effKey === 'auto') {
+    effKey = (currentTab === 'read')
+      ? 'finished_at'
+      : (currentTab === 'reading' ? 'started_at' : 'added_at');
+  }
+  const dir = (sortDir === 'asc') ? 1 : -1;
 
-  const dir = sortDir === 'asc' ? 1 : -1;
-
-  function dateVal(v) {
+  const dateVal = (v) => {
     if (!v) return NaN;
     const t = new Date(v).getTime();
     return Number.isNaN(t) ? NaN : t;
-  }
+  };
+
   function cmp(a, b) {
     let va, vb;
-
     switch (effKey) {
       case 'title':
-        va = normStr(a.title); vb = normStr(b.title); break;
+        va = normStrSmart(a.title);  vb = normStrSmart(b.title);  break;
       case 'author':
-        va = normStr(a.author); vb = normStr(b.author); break;
+        va = normStrSmart(a.author); vb = normStrSmart(b.author); break;
       case 'rating':
-        va = Number(a.rating ?? 0); vb = Number(b.rating ?? 0); break;
+        va = Number(a.rating ?? 0); vb = Number(b.rating ?? 0);    break;
       case 'added_at':
-        va = dateVal(a.added_at ?? a.created_at); vb = dateVal(b.added_at ?? b.created_at); break;
+        va = dateVal(a.added_at ?? a.created_at);
+        vb = dateVal(b.added_at ?? b.created_at);
+        break;
       case 'finished_at':
         va = dateVal(a.finished_at); vb = dateVal(b.finished_at); break;
+      case 'started_at':
+        va = dateVal(a.started_at);  vb = dateVal(b.started_at);  break;
       default:
         va = 0; vb = 0;
     }
 
-    // обработка пустых значений: пустые уходят в конец при 'desc' и в начало при 'asc'
+    // пустые значения: при desc — в конец, при asc — в начало
     const aEmpty = (va === '' || va === null || Number.isNaN(va));
     const bEmpty = (vb === '' || vb === null || Number.isNaN(vb));
     if (aEmpty && !bEmpty) return (dir === 1) ? -1 : 1;
-    if (!aEmpty && bEmpty) return (dir === 1) ? 1 : -1;
+    if (!aEmpty && bEmpty) return (dir === 1) ?  1 : -1;
 
-    // сравнение строк/чисел
+    // основное сравнение (строки через collator, числа/даты — как числа)
     if (typeof va === 'string' && typeof vb === 'string') {
-      if (va < vb) return -1 * dir;
-      if (va > vb) return  1 * dir;
+      const res = collRU.compare(va, vb);
+      if (res !== 0) return res * dir;
     } else {
-      const na = Number(va); const nb = Number(vb);
+      const na = Number(va), nb = Number(vb);
       if (na < nb) return -1 * dir;
       if (na > nb) return  1 * dir;
     }
 
-    // стабильный тай-брейкер: по названию А→Я
-    const ta = normStr(a.title); const tb = normStr(b.title);
-    if (ta < tb) return -1;
-    if (ta > tb) return  1;
-    return 0;
+    // вторичный ключ: стабильный
+    // если основная сортировка — по названию, то тай-брейкер по автору; иначе — по названию
+    const ta = normStrSmart(a.title),  tb = normStrSmart(b.title);
+    const aa = normStrSmart(a.author), ab = normStrSmart(b.author);
+    if (effKey === 'title') {
+      const res2 = collRU.compare(aa, ab);
+      if (res2 !== 0) return res2;
+      return collRU.compare(ta, tb);
+    } else {
+      const res2 = collRU.compare(ta, tb);
+      if (res2 !== 0) return res2;
+      return collRU.compare(aa, ab);
+    }
   }
 
   return [...list].sort(cmp);
 }
+
 
 
 
