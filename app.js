@@ -221,14 +221,9 @@ function renderCollectionsBar() {
 function renderSortBar() {
   const k = sortKey; const d = sortDir;
   return `
-    <div class="sort-bar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px;">
-      <label for="sortKey" style="opacity:.8;display:flex;align-items:center;gap:6px;">
-        Сортировка
-        <button type="button" id="sortDirToggle" title="Направление" class="sort-arrow" aria-label="Направление">
-          ${d === 'asc' ? '↑' : '↓'}
-        </button>
-      </label>
-      <select id="sortKey" style="padding:8px;border:1px solid #ddd;border-radius:8px;">
+    <div class="sort-bar">
+      <label for="sortKey" class="sr-only">Сортировка</label>
+      <select id="sortKey" class="sort-select">
         <option value="auto"        ${k==='auto'?'selected':''}>Авто (по вкладке)</option>
         <option value="title"       ${k==='title'?'selected':''}>Название (А→Я)</option>
         <option value="author"      ${k==='author'?'selected':''}>Автор (А→Я)</option>
@@ -236,9 +231,17 @@ function renderSortBar() {
         <option value="added_at"    ${k==='added_at'?'selected':''}>Дата добавления</option>
         <option value="finished_at" ${k==='finished_at'?'selected':''}>Дата завершения</option>
       </select>
+      <button type="button"
+              id="sortDirToggle"
+              class="sort-arrow"
+              title="${d==='asc'?'По возрастанию':'По убыванию'}"
+              aria-label="Направление сортировки">
+        ${d === 'asc' ? '↑' : '↓'}
+      </button>
     </div>
   `;
 }
+
 
 
 
