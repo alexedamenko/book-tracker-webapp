@@ -40,6 +40,19 @@ if (tg && tg.initDataUnsafe?.user?.id) {
 let books = [];
 let currentTab = "read";
 
+// === СОРТИРОВКА (глобальные) ===
+const SORT_DEFAULT = 'auto';     // авто: read → finished_at, иначе → added_at
+let sortKey = localStorage.getItem('sort_key') || SORT_DEFAULT; // 'auto'|'title'|'author'|'rating'|'added_at'|'finished_at'
+let sortDir = localStorage.getItem('sort_dir') || 'desc';       // 'asc' | 'desc'
+
+// нормализация строки для сортировки (регистр, ё/е, лишние пробелы)
+function normStr(s) {
+  return String(s ?? '')
+    .toLowerCase()
+    .replaceAll('ё', 'е')
+    .trim();
+}
+
 // 📚 Хранилище текущего списка полок
 let collections = [];
 let bookCollectionsMap = new Map(); // bookId -> Set(collectionId)
@@ -66,8 +79,9 @@ function getVisibleBooks() {
   if (currentCollectionId) {
     base = base.filter(b => bookCollectionsMap.get(b.id)?.has(currentCollectionId));
   }
-  return base;
+  return applySort(base); // 👈 сортируем тут
 }
+
 
 
 // 🔁 Основная функция отрисовки экрана с книгами
@@ -91,6 +105,7 @@ window.renderMainScreen = async function () {
     
 
   ${renderCollectionsBar()}
+  ${renderSortBar()}   
   
     <div id="book-list">
     ${visible.length ? visible.map(renderBookCard).join("") : "<p>📭 Нет книг в этой категории</p>"}
@@ -106,6 +121,23 @@ window.renderMainScreen = async function () {
       <button onclick="showSearch()">🔍 Поиск</button>
     </div>
   `;
+
+  // смена ключа сортировки
+const sel = container.querySelector('#sortKey');
+if (sel) sel.addEventListener('change', () => {
+  sortKey = sel.value;
+  localStorage.setItem('sort_key', sortKey);
+  renderMainScreen();
+});
+
+// переключатель направления
+const dirBtn = container.querySelector('#sortDirBtn');
+if (dirBtn) dirBtn.addEventListener('click', () => {
+  sortDir = (sortDir === 'asc') ? 'desc' : 'asc';
+  localStorage.setItem('sort_dir', sortDir);
+  renderMainScreen();
+});
+
   
   // ⬇️ Назначение обработчиков на кнопки экспорта
   document.getElementById("exportBtn").addEventListener("click", () => {
@@ -155,6 +187,82 @@ function renderCollectionsBar() {
   `;
 }
 
+function renderSortBar() {
+  const k = sortKey; const d = sortDir;
+  return `
+    <div class="sort-bar" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 12px;">
+      <label style="opacity:.8;">Сортировка:</label>
+      <select id="sortKey" style="padding:8px;border:1px solid #ddd;border-radius:8px;">
+        <option value="auto"        ${k==='auto'?'selected':''}>Авто (по вкладке)</option>
+        <option value="title"       ${k==='title'?'selected':''}>Название (А→Я)</option>
+        <option value="author"      ${k==='author'?'selected':''}>Автор (А→Я)</option>
+        <option value="rating"      ${k==='rating'?'selected':''}>Оценка</option>
+        <option value="added_at"    ${k==='added_at'?'selected':''}>Дата добавления</option>
+        <option value="finished_at" ${k==='finished_at'?'selected':''}>Дата завершения</option>
+      </select>
+      <button id="sortDirBtn" class="chip" data-dir="${d}">
+        ${d==='asc' ? '↑ по возрастанию' : '↓ по убыванию'}
+      </button>
+    </div>
+  `;
+}
+
+
+function applySort(list) {
+  const effKey = (sortKey === 'auto')
+    ? (currentTab === 'read' ? 'finished_at' : 'added_at')
+    : sortKey;
+
+  const dir = sortDir === 'asc' ? 1 : -1;
+
+  function dateVal(v) {
+    if (!v) return NaN;
+    const t = new Date(v).getTime();
+    return Number.isNaN(t) ? NaN : t;
+  }
+  function cmp(a, b) {
+    let va, vb;
+
+    switch (effKey) {
+      case 'title':
+        va = normStr(a.title); vb = normStr(b.title); break;
+      case 'author':
+        va = normStr(a.author); vb = normStr(b.author); break;
+      case 'rating':
+        va = Number(a.rating ?? 0); vb = Number(b.rating ?? 0); break;
+      case 'added_at':
+        va = dateVal(a.added_at ?? a.created_at); vb = dateVal(b.added_at ?? b.created_at); break;
+      case 'finished_at':
+        va = dateVal(a.finished_at); vb = dateVal(b.finished_at); break;
+      default:
+        va = 0; vb = 0;
+    }
+
+    // обработка пустых значений: пустые уходят в конец при 'desc' и в начало при 'asc'
+    const aEmpty = (va === '' || va === null || Number.isNaN(va));
+    const bEmpty = (vb === '' || vb === null || Number.isNaN(vb));
+    if (aEmpty && !bEmpty) return (dir === 1) ? -1 : 1;
+    if (!aEmpty && bEmpty) return (dir === 1) ? 1 : -1;
+
+    // сравнение строк/чисел
+    if (typeof va === 'string' && typeof vb === 'string') {
+      if (va < vb) return -1 * dir;
+      if (va > vb) return  1 * dir;
+    } else {
+      const na = Number(va); const nb = Number(vb);
+      if (na < nb) return -1 * dir;
+      if (na > nb) return  1 * dir;
+    }
+
+    // стабильный тай-брейкер: по названию А→Я
+    const ta = normStr(a.title); const tb = normStr(b.title);
+    if (ta < tb) return -1;
+    if (ta > tb) return  1;
+    return 0;
+  }
+
+  return [...list].sort(cmp);
+}
 
 
 
