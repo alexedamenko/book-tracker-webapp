@@ -174,6 +174,8 @@ loadCurrentCollection();
       </div>
       <button onclick="showStats()">📊 Статистика</button>
       <button onclick="showSearch()">🔍 Поиск</button>
+      <button onclick="showFriends()">👥 Друзья</button>
+      <button onclick="showGroups()">👥 Группы</button>
     </div>
   `;
 
@@ -1357,9 +1359,6 @@ renderMainScreen();
   });
 })();
 
-// кнопка на главной (например, рядом с «+ Добавить книгу»)
-<button onclick="showFriends()">👥 Друзья</button>
-
 window.showFriends = async function() {
   const container = document.getElementById('app');
   const friends = await listFriends(userId);
@@ -1495,9 +1494,6 @@ window.promptUpdateProgress = async function(_bookId, groupId, _x, groupBookId) 
   }
   showGroup(groupId);
 };
-
-// кнопка на главной (например, рядом с «+ Добавить книгу»)
-<button onclick="showGroups()">👥 Группы</button>
 
 window.showGroups = async function() {
   const gs = await listGroups(userId);
