@@ -238,4 +238,266 @@ export default async function handler(req, res) {
     console.error(`❌ Ошибка в маршруте "${route}":`, err);
     res.status(500).json({ error: "Internal server error" });
   }
-}
+};
+
+// ====== ПРОФИЛИ / ДРУЗЬЯ ======
+
+// POST { user_id, username?, name?, avatar_url? } — обновляем/создаём профиль
+routes.upsertProfile = async (req, res) => {
+  const { user_id, username, name, avatar_url } = await readJsonBody(req);
+  if (!user_id) return res.status(400).json({ error: 'user_id required' });
+
+  const { error } = await supabase
+    .from('user_profiles')
+    .upsert([{ user_id, username, name, avatar_url, updated_at: new Date().toISOString() }]);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+};
+
+// GET ?user_id=... — список друзей (массив профилей)
+routes.listFriends = async (req, res, params) => {
+  const userId = params.get('user_id');
+  if (!userId) return res.status(400).json({ error: 'user_id required' });
+
+  // найдём все пары, где userId участвует
+  const { data: pairs, error: e1 } = await supabase
+    .from('friendships')
+    .select('user_a, user_b')
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`);
+  if (e1) return res.status(500).json({ error: e1.message });
+
+  const ids = new Set();
+  for (const p of (pairs || [])) {
+    ids.add(p.user_a === userId ? p.user_b : p.user_a);
+  }
+  if (!ids.size) return res.json([]);
+
+  const { data: profs, error: e2 } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .in('user_id', [...ids]);
+  if (e2) return res.status(500).json({ error: e2.message });
+
+  res.json(profs || []);
+};
+
+// POST { from_user, to_username } — отправить заявку по @username
+routes.sendFriendRequest = async (req, res) => {
+  const { from_user, to_username } = await readJsonBody(req);
+  if (!from_user || !to_username) return res.status(400).json({ error: 'from_user & to_username required' });
+
+  const uname = to_username.replace(/^@/, '').toLowerCase();
+  const { data: to, error: e1 } = await supabase
+    .from('user_profiles').select('user_id, username')
+    .eq('username', uname).maybeSingle();
+  if (e1) return res.status(500).json({ error: e1.message });
+  if (!to) return res.status(404).json({ error: 'Пользователь не найден' });
+  if (to.user_id === from_user) return res.status(400).json({ error: 'Нельзя добавить себя' });
+
+  const { error: e2 } = await supabase.from('friend_requests')
+    .insert([{ from_user, to_user: to.user_id, status: 'pending' }]);
+  if (e2) return res.status(500).json({ error: e2.message });
+  res.json({ success: true });
+};
+
+// GET ?user_id=... — входящие заявки
+routes.listFriendRequests = async (req, res, params) => {
+  const userId = params.get('user_id');
+  if (!userId) return res.status(400).json({ error: 'user_id required' });
+
+  const { data, error } = await supabase
+    .from('friend_requests')
+    .select('id, from_user, created_at')
+    .eq('to_user', userId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+
+  // подтянем профили отправителей
+  const ids = data.map(d => d.from_user);
+  let profs = [];
+  if (ids.length) {
+    const resp = await supabase.from('user_profiles').select('*').in('user_id', ids);
+    profs = resp.data || [];
+  }
+  res.json({ requests: data, profiles: profs });
+};
+
+// POST { request_id, accept: true|false }
+routes.respondFriendRequest = async (req, res) => {
+  const { request_id, accept } = await readJsonBody(req);
+  if (!request_id) return res.status(400).json({ error: 'request_id required' });
+
+  const { data: reqRow, error: e1 } = await supabase
+    .from('friend_requests').select('*').eq('id', request_id).maybeSingle();
+  if (e1) return res.status(500).json({ error: e1.message });
+  if (!reqRow || reqRow.status !== 'pending') return res.status(400).json({ error: 'Request not pending' });
+
+  // обновим статус
+  const { error: e2 } = await supabase
+    .from('friend_requests')
+    .update({ status: accept ? 'accepted' : 'declined' })
+    .eq('id', request_id);
+  if (e2) return res.status(500).json({ error: e2.message });
+
+  if (accept) {
+    const a = reqRow.from_user < reqRow.to_user ? reqRow.from_user : reqRow.to_user;
+    const b = reqRow.from_user < reqRow.to_user ? reqRow.to_user : reqRow.from_user;
+    await supabase.from('friendships').insert([{ user_a: a, user_b: b }]);
+  }
+  res.json({ success: true });
+};
+
+// GET ?user_id=... — «что читают друзья сейчас» (статус reading)
+routes.friendsReadingNow = async (req, res, params) => {
+  const userId = params.get('user_id');
+  if (!userId) return res.status(400).json({ error: 'user_id required' });
+
+  const { data: pairs } = await supabase
+    .from('friendships').select('user_a,user_b')
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`);
+  const ids = new Set();
+  for (const p of (pairs || [])) ids.add(p.user_a === userId ? p.user_b : p.user_a);
+  if (!ids.size) return res.json([]);
+
+  const { data: books } = await supabase
+    .from('user_books')
+    .select('user_id,id,title,author,cover_url,started_at,status,rating')
+    .in('user_id', [...ids])
+    .eq('status', 'reading');
+  res.json(books || []);
+};
+
+
+// ====== ГРУППЫ / КНИГА НЕДЕЛИ ======
+
+// POST { owner_id, name } -> { group_id, invite_code }
+routes.createGroup = async (req, res) => {
+  const { owner_id, name } = await readJsonBody(req);
+  if (!owner_id || !name) return res.status(400).json({ error: 'owner_id & name required' });
+
+  const invite = Math.random().toString(36).slice(2, 8); // простой код
+  const { data, error } = await supabase
+    .from('groups')
+    .insert([{ owner_id, name, invite_code: invite }])
+    .select('id, invite_code').single();
+  if (error) return res.status(500).json({ error: error.message });
+
+  await supabase.from('group_members').insert([{ group_id: data.id, user_id: owner_id, role: 'owner' }]);
+  res.json({ group_id: data.id, invite_code: data.invite_code });
+};
+
+// GET ?user_id=... -> список моих групп (+кол-во участников)
+routes.listGroups = async (req, res, params) => {
+  const uid = params.get('user_id');
+  if (!uid) return res.status(400).json({ error: 'user_id required' });
+
+  const { data: memberships, error: e1 } = await supabase
+    .from('group_members').select('group_id').eq('user_id', uid);
+  if (e1) return res.status(500).json({ error: e1.message });
+  const ids = memberships?.map(m => m.group_id) || [];
+  if (!ids.length) return res.json([]);
+
+  const { data: gs } = await supabase.from('groups').select('*').in('id', ids);
+  // посчитаем участников
+  const { data: cnt } = await supabase
+    .from('group_members').select('group_id, count:user_id').in('group_id', ids).group('group_id');
+  const mapCnt = new Map((cnt || []).map(c => [c.group_id, c.count]));
+  res.json((gs || []).map(g => ({ ...g, members_count: mapCnt.get(g.id) || 1 })));
+};
+
+// POST { user_id, invite_code } -> вступление по коду
+routes.joinGroup = async (req, res) => {
+  const { user_id, invite_code } = await readJsonBody(req);
+  if (!user_id || !invite_code) return res.status(400).json({ error: 'user_id & invite_code required' });
+
+  const { data: g, error: e1 } = await supabase
+    .from('groups').select('id').eq('invite_code', invite_code).maybeSingle();
+  if (e1) return res.status(500).json({ error: e1.message });
+  if (!g) return res.status(404).json({ error: 'Группа не найдена' });
+
+  await supabase.from('group_members').upsert([{ group_id: g.id, user_id }]);
+  res.json({ group_id: g.id });
+};
+
+// POST { group_id, title, author?, cover_url?, start_at?, end_at? } -> активная книга
+routes.setGroupBook = async (req, res) => {
+  const { group_id, title, author, cover_url, start_at, end_at } = await readJsonBody(req);
+  if (!group_id || !title) return res.status(400).json({ error: 'group_id & title required' });
+
+  // снимаем активность со старых
+  await supabase.from('group_books').update({ active: false }).eq('group_id', group_id).eq('active', true);
+
+  const { data, error } = await supabase
+    .from('group_books')
+    .insert([{ group_id, title, author, cover_url, start_at, end_at, active: true }])
+    .select('id').single();
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ group_book_id: data.id });
+};
+
+// GET ?group_id=... -> активная книга + список участников и их прогресс
+routes.groupDashboard = async (req, res, params) => {
+  const gid = params.get('group_id');
+  if (!gid) return res.status(400).json({ error: 'group_id required' });
+
+  const { data: gb } = await supabase
+    .from('group_books').select('*')
+    .eq('group_id', gid).eq('active', true).maybeSingle();
+
+  const { data: members } = await supabase
+    .from('group_members').select('user_id, role').eq('group_id', gid);
+
+  let progress = [];
+  if (gb) {
+    const resp = await supabase
+      .from('group_progress').select('*').eq('group_book_id', gb.id);
+    progress = resp.data || [];
+  }
+
+  const ids = members?.map(m => m.user_id) || [];
+  let profs = [];
+  if (ids.length) {
+    const r = await supabase.from('user_profiles').select('*').in('user_id', ids);
+    profs = r.data || [];
+  }
+
+  res.json({ book: gb, members: members || [], progress, profiles: profs });
+};
+
+// POST { group_book_id, user_id, progress_pct?, current_page?, total_pages? }
+routes.updateGroupProgress = async (req, res) => {
+  const { group_book_id, user_id, progress_pct, current_page, total_pages } = await readJsonBody(req);
+  if (!group_book_id || !user_id) return res.status(400).json({ error: 'group_book_id & user_id required' });
+
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('group_progress').upsert([{
+    group_book_id, user_id, progress_pct, current_page, total_pages, updated_at: now
+  }], { onConflict: 'group_book_id,user_id' });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+};
+
+// GET ?group_book_id=... -> лента
+routes.listGroupComments = async (req, res, params) => {
+  const gb = params.get('group_book_id');
+  if (!gb) return res.status(400).json({ error: 'group_book_id required' });
+  const { data, error } = await supabase
+    .from('group_comments').select('*')
+    .eq('group_book_id', gb).order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+};
+
+// POST { group_book_id, user_id, text }
+routes.postGroupComment = async (req, res) => {
+  const { group_book_id, user_id, text } = await readJsonBody(req);
+  if (!group_book_id || !user_id || !text) return res.status(400).json({ error: 'fields required' });
+
+  const { error } = await supabase.from('group_comments')
+    .insert([{ group_book_id, user_id, text }]);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+};
+
