@@ -389,21 +389,49 @@ routes.createGroup = async (req, res) => {
 
 // GET ?user_id=... -> список моих групп (+кол-во участников)
 routes.listGroups = async (req, res, params) => {
-  const uid = params.get('user_id');
-  if (!uid) return res.status(400).json({ error: 'user_id required' });
+  try {
+    const uid = params.get('user_id');
+    if (!uid) return res.status(400).json({ error: 'user_id required' });
 
-  const { data: memberships, error: e1 } = await supabase
-    .from('group_members').select('group_id').eq('user_id', uid);
-  if (e1) return res.status(500).json({ error: e1.message });
-  const ids = memberships?.map(m => m.group_id) || [];
-  if (!ids.length) return res.json([]);
+    // мои membership'ы
+    const { data: memberships, error: e1 } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', uid);
+    if (e1) return res.status(500).json({ error: e1.message });
 
-  const { data: gs } = await supabase.from('groups').select('*').in('id', ids);
-  // посчитаем участников
-  const { data: cnt } = await supabase
-    .from('group_members').select('group_id, count:user_id').in('group_id', ids).group('group_id');
-  const mapCnt = new Map((cnt || []).map(c => [c.group_id, c.count]));
-  res.json((gs || []).map(g => ({ ...g, members_count: mapCnt.get(g.id) || 1 })));
+    const ids = (memberships || []).map(m => m.group_id);
+    if (!ids.length) return res.json([]); // нет групп — пустой массив
+
+    // сами группы
+    const { data: groups, error: e2 } = await supabase
+      .from('groups')
+      .select('id, name, owner_id, invite_code, created_at')
+      .in('id', ids);
+    if (e2) return res.status(500).json({ error: e2.message });
+
+    // посчитаем участников простым вторым запросом и JS-редьюсом
+    const { data: members, error: e3 } = await supabase
+      .from('group_members')
+      .select('group_id, user_id')
+      .in('group_id', ids);
+    if (e3) return res.status(500).json({ error: e3.message });
+
+    const counts = (members || []).reduce((acc, m) => {
+      acc[m.group_id] = (acc[m.group_id] || 0) + 1;
+      return acc;
+    }, {});
+
+    const out = (groups || []).map(g => ({
+      ...g,
+      members_count: counts[g.id] || 1
+    }));
+
+    res.json(out);
+  } catch (err) {
+    console.error('listGroups failed:', err);
+    res.status(500).json({ error: 'Internal error in listGroups' });
+  }
 };
 
 // POST { user_id, invite_code } -> вступление по коду
