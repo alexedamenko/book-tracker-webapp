@@ -34,13 +34,21 @@ if (tg && tg.initDataUnsafe?.user?.id) {
   console.warn("Demo mode: running outside Telegram");
   userId = "demo_user_001";
 }
-const me = tg?.initDataUnsafe?.user || {};
-await upsertProfile({
-  user_id: String(me.id || userId),
-  username: (me.username || '').toLowerCase(),
-  name: [me.first_name, me.last_name].filter(Boolean).join(' '),
-  avatar_url: '' // если будет — подставим
-});
+
+// Синхронизируем профиль в БД (не блокирует UI)
+(async () => {
+  try {
+    const u = window.Telegram?.WebApp?.initDataUnsafe?.user || {};
+    await upsertProfile({
+      user_id: String(userId),
+      username: (u.username || '').toLowerCase(),
+      name: [u.first_name, u.last_name].filter(Boolean).join(' '),
+      avatar_url: '' // если появится — подставим
+    });
+  } catch (e) {
+    console.warn('Profile sync failed', e);
+  }
+})();
 
 // 📚 Хранилище текущего списка книг и активной вкладки
 let books = [];
