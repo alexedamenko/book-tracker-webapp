@@ -34,7 +34,13 @@ if (tg && tg.initDataUnsafe?.user?.id) {
   console.warn("Demo mode: running outside Telegram");
   userId = "demo_user_001";
 }
-
+const me = tg?.initDataUnsafe?.user || {};
+await upsertProfile({
+  user_id: String(me.id || userId),
+  username: (me.username || '').toLowerCase(),
+  name: [me.first_name, me.last_name].filter(Boolean).join(' '),
+  avatar_url: '' // если будет — подставим
+});
 
 // 📚 Хранилище текущего списка книг и активной вкладки
 let books = [];
@@ -1351,4 +1357,187 @@ renderMainScreen();
   });
 })();
 
+// кнопка на главной (например, рядом с «+ Добавить книгу»)
+<button onclick="showFriends()">👥 Друзья</button>
+
+window.showFriends = async function() {
+  const container = document.getElementById('app');
+  const friends = await listFriends(userId);
+  const reading = await friendsReadingNow(userId); // книги со статусом reading
+  const readingMap = new Map(reading.map(b => [b.user_id, b]));
+
+  const requests = await listFriendRequests(userId);
+
+  container.innerHTML = `
+    <h2>👥 Друзья</h2>
+
+    <div style="display:flex;gap:8px;margin:8px 0 16px;">
+      <input id="addByUsername" placeholder="Добавить по @username" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;">
+      <button id="sendReq">Добавить</button>
+    </div>
+
+    ${requests.requests.length ? `
+      <h3>Заявки</h3>
+      <div>${requests.requests.map(r => {
+        const p = requests.profiles.find(x => x.user_id === r.from_user);
+        const name = p?.name || ('@' + (p?.username || 'user'));
+        return `<div style="display:flex;gap:8px;align-items:center;margin:6px 0;">
+          <div style="flex:1;">${name}</div>
+          <button onclick="respondFriend('${r.id}', true)">Принять</button>
+          <button onclick="respondFriend('${r.id}', false)">Отклонить</button>
+        </div>`;
+      }).join('')}</div>
+    ` : ''}
+
+    <h3>Мои друзья</h3>
+    <div>
+      ${friends.length ? friends.map(f => {
+        const b = readingMap.get(f.user_id);
+        return `<div class="friend-row" style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid #eee;border-radius:10px;margin-bottom:8px;">
+          <div style="flex:1;">
+            <div style="font-weight:600;">${f.name || '@'+(f.username||'user')}</div>
+            ${b ? `<div style="opacity:.8;">Читает: ${b.title} — ${b.author||''}</div>` : `<div style="opacity:.7;">Не читает сейчас</div>`}
+          </div>
+          ${b ? `<button onclick="startGroupWithFriend('${f.user_id}', '${b.title}', '${b.author||''}', '${b.cover_url||''}')">📚 Читать вместе</button>` : ''}
+        </div>`;
+      }).join('') : '<div>Пока нет друзей</div>'}
+    </div>
+
+    <div class="footer-buttons"><button onclick="renderMainScreen()">← Назад</button></div>
+  `;
+
+  document.getElementById('sendReq').onclick = async () => {
+    const u = document.getElementById('addByUsername').value.trim();
+    if (!u) return;
+    const r = await sendFriendRequest(userId, u);
+    alert(r.error || 'Заявка отправлена');
+    showFriends();
+  };
+};
+
+window.respondFriend = async function(reqId, ok) {
+  await respondFriendRequest(reqId, !!ok);
+  showFriends();
+};
+
+window.startGroupWithFriend = async function(friendId, title, author, cover) {
+  const g = await createGroup(userId, 'Дуэт чтения');
+  await joinGroup(friendId, g.invite_code); // если уже состоит — просто будет upsert
+  const gb = await setGroupBook(g.group_id, { title, author, cover_url: cover });
+  // откроем группу:
+  showGroup(g.group_id);
+};
+
+window.showGroup = async function(groupId) {
+  const container = document.getElementById('app');
+  const data = await groupDashboard(groupId);
+
+  const book = data?.book;
+  const members = data?.members || [];
+  const profMap = new Map(data?.profiles.map(p => [p.user_id, p]) || []);
+  const progMap = new Map((data?.progress || []).map(p => [p.user_id, p]));
+
+  container.innerHTML = `
+    <h2>👥 Группа</h2>
+
+    ${book ? `
+      <div class="group-book" style="padding:12px;border:1px solid #eee;border-radius:12px;margin-bottom:12px;">
+        <div style="font-weight:700;">${book.title}</div>
+        <div style="opacity:.8;">${book.author||''}</div>
+        ${book.start_at ? `<div>Старт: ${book.start_at}</div>`:''}
+        ${book.end_at ? `<div>Дедлайн: ${book.end_at}</div>`:''}
+      </div>
+    ` : `
+      <div>Пока нет активной книги. <button onclick="promptSetGroupBook('${groupId}')">Выбрать книгу</button></div>
+    `}
+
+    <h3>Прогресс</h3>
+    <div>
+      ${members.map(m => {
+        const p = profMap.get(m.user_id);
+        const pr = progMap.get(m.user_id);
+        const pct = pr?.progress_pct ?? (pr?.current_page && pr?.total_pages ? Math.round(100*pr.current_page/pr.total_pages) : 0);
+        return `<div style="display:flex;align-items:center;gap:10px;margin:6px 0;">
+          <div style="flex:1;">
+            <div>${p?.name || '@'+(p?.username||'user')}</div>
+            <div style="height:8px;border-radius:999px;background:#eee;overflow:hidden;">
+              <div style="height:8px;width:${pct||0}%;background:#60a5fa;"></div>
+            </div>
+          </div>
+          ${String(m.user_id)===String(userId) && book ? `
+            <button onclick="promptUpdateProgress('${book.id||''}','${groupId}','${book.id? '': (data.book.id)}','${data.book.id}')">Обновить</button>
+          ` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="footer-buttons"><button onclick="renderMainScreen()">← Назад</button></div>
+  `;
+};
+
+window.promptSetGroupBook = async function(groupId) {
+  const title = prompt('Название книги недели');
+  if (!title) return;
+  const author = prompt('Автор (необязательно)') || '';
+  const gb = await setGroupBook(groupId, { title, author });
+  showGroup(groupId);
+};
+
+window.promptUpdateProgress = async function(_bookId, groupId, _x, groupBookId) {
+  const mode = confirm('Ок — проценты. Отмена — страницы.');
+  if (mode) {
+    const pct = Number(prompt('Прогресс, % (0-100)') || '0');
+    await updateGroupProgress(groupBookId, userId, { progress_pct: Math.max(0, Math.min(100, pct)) });
+  } else {
+    const cur = Number(prompt('Текущая страница') || '0');
+    const tot = Number(prompt('Всего страниц') || '0');
+    await updateGroupProgress(groupBookId, userId, { current_page: cur, total_pages: tot });
+  }
+  showGroup(groupId);
+};
+
+// кнопка на главной (например, рядом с «+ Добавить книгу»)
+<button onclick="showGroups()">👥 Группы</button>
+
+window.showGroups = async function() {
+  const gs = await listGroups(userId);
+  const container = document.getElementById('app');
+  container.innerHTML = `
+    <h2>👥 Мои группы</h2>
+    <div style="display:flex;gap:8px;margin:8px 0 16px;">
+      <input id="groupName" placeholder="Название группы" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;">
+      <button id="createGroupBtn">Создать</button>
+    </div>
+    <div style="display:flex;gap:8px;margin:8px 0 16px;">
+      <input id="inviteCode" placeholder="Код приглашения" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;">
+      <button id="joinBtn">Вступить</button>
+    </div>
+    <div>
+      ${gs.length ? gs.map(g => `
+        <div style="padding:10px;border:1px solid #eee;border-radius:10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div><b>${g.name}</b> · ${g.members_count||1} участн.</div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="showGroup('${g.id}')">Открыть</button>
+            <button onclick="navigator.clipboard.writeText('${g.invite_code||''}'); alert('Код скопирован');">Код</button>
+          </div>
+        </div>
+      `).join('') : '<div>Пока нет групп</div>'}
+    </div>
+    <div class="footer-buttons"><button onclick="renderMainScreen()">← Назад</button></div>
+  `;
+
+  document.getElementById('createGroupBtn').onclick = async ()=>{
+    const name = document.getElementById('groupName').value.trim();
+    if (!name) return;
+    const info = await createGroup(userId, name);
+    alert('Группа создана. Код: ' + info.invite_code);
+    showGroups();
+  };
+  document.getElementById('joinBtn').onclick = async ()=>{
+    const code = document.getElementById('inviteCode').value.trim();
+    if (!code) return;
+    const info = await joinGroup(userId, code);
+    showGroups();
+  };
+};
 
