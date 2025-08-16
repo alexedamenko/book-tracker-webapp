@@ -1,27 +1,21 @@
 // 📁 app.js — Основная логика WebApp
 
 // 🛠 Импорт основных функций API и подключения к Supabase
-import {
-  getBooks,
-  addBook,
-  uploadExport,
-  updateBook,
-  deleteBook,
-  saveComment,
-  checkAndInsertLibraryBook,
-  deleteImageFromStorage,
-  uploadCover,
-  searchBooks,
-  deleteCommentImage,
-  uploadCommentImage,
-  listCollections,
-  listAllBookCollections,
-  listBookCollections,
-  setBookCollections,
-  createCollection,
-  renameCollection,
-  deleteCollection
-} from './api.js';
+ import {
+   // базовые
+   getBooks, addBook, uploadExport, updateBook, deleteBook,
+   saveComment, checkAndInsertLibraryBook, deleteImageFromStorage,
+   uploadCover, searchBooks, deleteCommentImage, uploadCommentImage,
+   // полки
+   listCollections, listAllBookCollections, listBookCollections,
+   setBookCollections, createCollection, renameCollection, deleteCollection,
+   // профили/друзья
+   upsertProfile, listFriends, sendFriendRequest, listFriendRequests,
+   respondFriendRequest, friendsReadingNow,
+   // группы и «книга недели»
+   createGroup, listGroups, joinGroup, setGroupBook,
+   groupDashboard, updateGroupProgress, listGroupComments, postGroupComment
+ } from './api.js';
 
 // ✅ Инициализация WebApp Telegram (и демо-режим локально)
 const tg = window.Telegram?.WebApp;
