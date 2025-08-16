@@ -195,3 +195,59 @@ export async function listAllBookCollections(userId) {
   return r.ok ? r.json() : [];
 }
 
+// Профиль / друзья
+export async function upsertProfile(p) {
+  await fetch('/api/handler?route=upsertProfile', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p) });
+}
+export async function listFriends(userId) {
+  const r = await fetch(`/api/handler?route=listFriends&user_id=${encodeURIComponent(userId)}`);
+  return r.ok ? r.json() : [];
+}
+export async function sendFriendRequest(from_user, to_username) {
+  const r = await fetch('/api/handler?route=sendFriendRequest', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({from_user, to_username}) });
+  return r.json();
+}
+export async function listFriendRequests(userId) {
+  const r = await fetch(`/api/handler?route=listFriendRequests&user_id=${encodeURIComponent(userId)}`);
+  return r.ok ? r.json() : { requests:[], profiles:[] };
+}
+export async function respondFriendRequest(request_id, accept) {
+  await fetch('/api/handler?route=respondFriendRequest', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({request_id, accept}) });
+}
+export async function friendsReadingNow(userId) {
+  const r = await fetch(`/api/handler?route=friendsReadingNow&user_id=${encodeURIComponent(userId)}`);
+  return r.ok ? r.json() : [];
+}
+
+// Группы / книга недели
+export async function createGroup(owner_id, name) {
+  const r = await fetch('/api/handler?route=createGroup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({owner_id,name}) });
+  return r.json(); // {group_id, invite_code}
+}
+export async function listGroups(userId) {
+  const r = await fetch(`/api/handler?route=listGroups&user_id=${encodeURIComponent(userId)}`);
+  return r.ok ? r.json() : [];
+}
+export async function joinGroup(user_id, invite_code) {
+  const r = await fetch('/api/handler?route=joinGroup', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id, invite_code}) });
+  return r.json(); // {group_id}
+}
+export async function setGroupBook(group_id, payload) {
+  const r = await fetch('/api/handler?route=setGroupBook', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({group_id, ...payload}) });
+  return r.json(); // {group_book_id}
+}
+export async function groupDashboard(group_id) {
+  const r = await fetch(`/api/handler?route=groupDashboard&group_id=${encodeURIComponent(group_id)}`);
+  return r.ok ? r.json() : null;
+}
+export async function updateGroupProgress(group_book_id, user_id, fields) {
+  await fetch('/api/handler?route=updateGroupProgress', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({group_book_id, user_id, ...fields}) });
+}
+export async function listGroupComments(group_book_id) {
+  const r = await fetch(`/api/handler?route=listGroupComments&group_book_id=${encodeURIComponent(group_book_id)}`);
+  return r.ok ? r.json() : [];
+}
+export async function postGroupComment(group_book_id, user_id, text) {
+  await fetch('/api/handler?route=postGroupComment', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({group_book_id, user_id, text}) });
+}
+
