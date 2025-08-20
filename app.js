@@ -1476,30 +1476,35 @@ document.getElementById('copyMyCode').onclick = async () => {
   alert('Ссылка скопирована');
 };
 
+
 document.getElementById('shareMyCode').onclick = () => {
   const c = document.getElementById('myCode').textContent.trim();
   if (!c) return;
 
-  const link = makeFriendLink(c); // https://t.me/<bot>?startapp=FRIEND_<CODE>
-  const text = `Добавь меня в друзья в Book Tracker: ${link}`;
+  const link = makeFriendLink(c);                   // https://t.me/<bot>?startapp=FRIEND_<CODE>
+  const caption = 'Добавь меня в друзья в Book Tracker'; // ← без ссылки!
 
   const tg = window.Telegram?.WebApp;
-  // 1) внутри Telegram — откроем "поделиться ссылкой" (выбор чата)
+
+  // 1) Внутри Telegram: используем t.me/share — ссылка в url, текст отдельно
   if (tg?.openTelegramLink) {
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(caption)}`;
     tg.openTelegramLink(shareUrl);
     return;
   }
-  // 2) обычный браузер — системный шэр
+
+  // 2) Web Share API: передаём url, а в text — только подпись (без ссылки)
   if (navigator.share) {
-    navigator.share({ text, url: link }).catch(()=>{});
+    navigator.share({ url: link, text: caption }).catch(()=>{});
     return;
   }
-  // 3) запасной вариант — копируем
-  navigator.clipboard.writeText(text)
+
+  // 3) Фоллбэк: копируем одну ссылку
+  navigator.clipboard.writeText(link)
     .then(()=> alert('Ссылка скопирована'))
     .catch(()=> window.prompt('Скопируйте ссылку:', link));
 };
+
 
  
 document.getElementById('useCodeBtn').onclick = async () => {
