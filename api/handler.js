@@ -529,3 +529,46 @@ routes.postGroupComment = async (req, res) => {
   res.json({ success: true });
 };
 
+// POST { inviter_id } -> { code }
+routes.createFriendInvite = async (req, res) => {
+  const { inviter_id } = await readJsonBody(req);
+  if (!inviter_id) return res.status(400).json({ error: 'inviter_id required' });
+
+  // генерим уникальный код (6 символов base36, UPPER)
+  for (let i = 0; i < 6; i++) {
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const { error } = await supabase.from('friend_invites').insert([{ code, inviter_id }]);
+    if (!error) return res.json({ code });
+    // 23505 = unique violation, пробуем ещё раз
+    if (error.code !== '23505') return res.status(500).json({ error: error.message });
+  }
+  res.status(500).json({ error: 'Failed to generate code, try again' });
+};
+
+// POST { code, user_id } -> { success: true }
+routes.acceptFriendInvite = async (req, res) => {
+  const { code, user_id } = await readJsonBody(req);
+  if (!code || !user_id) return res.status(400).json({ error: 'code & user_id required' });
+
+  const { data: inv, error: e1 } = await supabase
+    .from('friend_invites').select('*')
+    .eq('code', code.toUpperCase()).maybeSingle();
+  if (e1) return res.status(500).json({ error: e1.message });
+  if (!inv) return res.status(404).json({ error: 'Код не найден' });
+  if (inv.used_by) return res.status(400).json({ error: 'Код уже использован' });
+  if (String(inv.inviter_id) === String(user_id))
+    return res.status(400).json({ error: 'Нельзя добавить себя' });
+
+  // создаём дружбу (упорядочиваем пары)
+  const a = String(inv.inviter_id) < String(user_id) ? String(inv.inviter_id) : String(user_id);
+  const b = String(inv.inviter_id) < String(user_id) ? String(user_id) : String(inv.inviter_id);
+  await supabase.from('friendships').upsert([{ user_a: a, user_b: b }], { onConflict: 'user_a,user_b' });
+
+  await supabase.from('friend_invites')
+    .update({ used_by: user_id, used_at: new Date().toISOString() })
+    .eq('code', inv.code);
+
+  res.json({ success: true });
+};
+
+
