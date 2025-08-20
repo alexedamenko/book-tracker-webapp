@@ -550,23 +550,51 @@ routes.acceptFriendInvite = async (req, res) => {
   const { code, user_id } = await readJsonBody(req);
   if (!code || !user_id) return res.status(400).json({ error: 'code & user_id required' });
 
+  const up = String(user_id);
+
   const { data: inv, error: e1 } = await supabase
     .from('friend_invites').select('*')
     .eq('code', code.toUpperCase()).maybeSingle();
   if (e1) return res.status(500).json({ error: e1.message });
   if (!inv) return res.status(404).json({ error: 'Код не найден' });
-  if (inv.used_by) return res.status(400).json({ error: 'Код уже использован' });
-  if (String(inv.inviter_id) === String(user_id))
-    return res.status(400).json({ error: 'Нельзя добавить себя' });
+  if (String(inv.inviter_id) === up) return res.status(400).json({ error: 'Нельзя добавить себя' });
 
-  // создаём дружбу (упорядочиваем пары)
-  const a = String(inv.inviter_id) < String(user_id) ? String(inv.inviter_id) : String(user_id);
-  const b = String(inv.inviter_id) < String(user_id) ? String(user_id) : String(inv.inviter_id);
-  await supabase.from('friendships').upsert([{ user_a: a, user_b: b }], { onConflict: 'user_a,user_b' });
+  // уже использован этим же пользователем → считаем успехом
+  if (inv.used_by && String(inv.used_by) !== up)
+    return res.status(400).json({ error: 'Код уже использован' });
 
+  // создаём дружбу (идемпотентно)
+  const a = String(inv.inviter_id) < up ? String(inv.inviter_id) : up;
+  const b = String(inv.inviter_id) < up ? up : String(inv.inviter_id);
+  const { error: e2 } = await supabase
+    .from('friendships')
+    .upsert([{ user_a: a, user_b: b }], { onConflict: 'user_a,user_b' });
+  if (e2) return res.status(500).json({ error: e2.message });
+
+  // помечаем код использованным (идемпотентно)
   await supabase.from('friend_invites')
-    .update({ used_by: user_id, used_at: new Date().toISOString() })
+    .update({ used_by: up, used_at: new Date().toISOString() })
     .eq('code', inv.code);
+
+  return res.json({ success: true });
+};
+// POST { user_id, friend_id } -> удалить дружбу с обеих сторон
+routes.removeFriend = async (req, res) => {
+  const { user_id, friend_id } = await readJsonBody(req);
+  if (!user_id || !friend_id) return res.status(400).json({ error: 'user_id & friend_id required' });
+
+  const a = String(user_id) < String(friend_id) ? String(user_id) : String(friend_id);
+  const b = String(user_id) < String(friend_id) ? String(friend_id) : String(user_id);
+
+  const { error } = await supabase
+    .from('friendships').delete()
+    .eq('user_a', a).eq('user_b', b);
+  if (error) return res.status(500).json({ error: error.message });
+
+  // подчистим незакрытые заявки между этими id (не обязательно, но полезно)
+  await supabase.from('friend_requests')
+    .delete()
+    .or(`and(from_user.eq.${a},to_user.eq.${b}),and(from_user.eq.${b},to_user.eq.${a})`);
 
   res.json({ success: true });
 };
