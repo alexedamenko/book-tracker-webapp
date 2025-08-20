@@ -208,10 +208,10 @@ loadCurrentCollection();
         <div class="format-option" data-format="csv">CSV</div>
         <div class="format-option" data-format="json">JSON</div>
       </div>
-      <button onclick="showStats()">📊 Статистика</button>
-      <button onclick="showSearch()">🔍 Поиск</button>
-      <button onclick="showFriends()">👥 Друзья</button>
-      <button onclick="showGroups()">👥 Группы</button>
+      <button onclick="showStats()">📊 <span class="label">Статистика</button>
+      <button onclick="showSearch()">🔍 <span class="label">Поиск</span></button>
+      <button onclick="showFriends()">👥 <span class="label">Друзья</span></button>
+      <button onclick="showGroups()">👥 <span class="label">Группы</span></button>
     </div>
   `;
 
