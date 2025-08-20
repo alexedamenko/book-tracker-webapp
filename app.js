@@ -70,7 +70,7 @@ if (tg && tg.initDataUnsafe?.user?.id) {
 
 
 // Укажи юзернейм своего бота (без @)
-const BOT_USERNAME = window.__booktracker_chip_bot__ || 'your_bot'; // 
+const BOT_USERNAME = window.__BOT_USERNAME__ || 'booktracker_chip_bot'; // 
 
 function makeFriendLink(code) {
   const c = String(code || '').toUpperCase().trim();
