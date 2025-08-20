@@ -164,6 +164,9 @@ button {
     padding: 8px 2px;
   }
 }
+@media (max-width: 340px){
+  .footer-buttons .label{ display:none; } /* оставим только иконки */
+}
 
 /* Если у тебя меню форматов внутри .footer-buttons, чтобы не ломало сетку */
 #formatMenu{
