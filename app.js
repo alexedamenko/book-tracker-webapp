@@ -12,6 +12,7 @@
    // профили/друзья
    upsertProfile, listFriends, sendFriendRequest, listFriendRequests,
    respondFriendRequest, friendsReadingNow, createFriendInvite, acceptFriendInvite,
+   removeFriendship,
    // группы и «книга недели»
    createGroup, listGroups, joinGroup, setGroupBook,
    groupDashboard, updateGroupProgress, listGroupComments, postGroupComment
@@ -29,6 +30,41 @@ if (tg && tg.initDataUnsafe?.user?.id) {
   userId = "demo_user_001";
 }
 
+function getStartParamSafe() {
+  const tg = window.Telegram?.WebApp;
+  const sp1 = tg?.initDataUnsafe?.start_param || '';
+  // иногда start_param доступен только в подписанной строке initData
+  let sp2 = '';
+  try {
+    const qs = new URLSearchParams(tg?.initData || '');
+    sp2 = qs.get('start_param') || '';
+  } catch {}
+  return sp1 || sp2 || '';
+}
+
+(function handleFriendDeepLinkOnce() {
+  const tg = window.Telegram?.WebApp;
+  if (!tg) return; // вне Telegram — не трогаем
+
+  const sp = getStartParamSafe();
+  if (!sp || !/^FRIEND_/.test(sp)) return;
+
+  const key = 'friend_accept_'+sp;
+  if (sessionStorage.getItem(key)) return; // чтобы не дёргать повторно
+  sessionStorage.setItem(key, '1');
+
+  const code = sp.slice(7);
+  acceptFriendInvite(code, String(userId))
+    .then(r => {
+      if (r?.success) {
+        // можно тихо обновить экран друзей, если он открыт
+        console.log('Friend auto-accepted');
+      } else {
+        console.warn('Friend auto-accept failed:', r?.error);
+      }
+    })
+    .catch(err => console.warn('Friend auto-accept error', err));
+})();
 
 
 // Синхронизируем профиль в БД (не блокирует UI)
@@ -1449,6 +1485,7 @@ window.showFriends = async function() {
             <div style="font-weight:600;">${f.name || '@'+(f.username||'user')}</div>
             ${b ? `<div style="opacity:.8;">Читает: ${b.title} — ${b.author||''}</div>` : `<div style="opacity:.7;">Не читает сейчас</div>`}
           </div>
+           <button class="danger" onclick="confirmRemoveFriend('${f.user_id}')">Удалить</button>
           ${b ? `<button onclick="startGroupWithFriend('${f.user_id}', '${b.title}', '${b.author||''}', '${b.cover_url||''}')">📚 Читать вместе</button>` : ''}
         </div>`;
       }).join('') : '<div>Пока нет друзей</div>'}
@@ -1530,6 +1567,12 @@ document.getElementById('useCodeBtn').onclick = async () => {
 window.respondFriend = async function(reqId, ok) {
   await respondFriendRequest(reqId, !!ok);
   showFriends();
+};
+window.confirmRemoveFriend = async function(friendId){
+  if (!confirm('Удалить этого пользователя из друзей?')) return;
+  const r = await removeFriendship(String(userId), String(friendId));
+  if (r?.success) showFriends();
+  else alert(r?.error || 'Не удалось удалить');
 };
 
 window.startGroupWithFriend = async function(friendId, title, author, cover) {
