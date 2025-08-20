@@ -250,4 +250,19 @@ export async function listGroupComments(group_book_id) {
 export async function postGroupComment(group_book_id, user_id, text) {
   await fetch('/api/handler?route=postGroupComment', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({group_book_id, user_id, text}) });
 }
+export async function createFriendInvite(inviter_id) {
+  const r = await fetch('/api/handler?route=createFriendInvite', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ inviter_id })
+  });
+  return r.json(); // { code } | { error }
+}
+
+export async function acceptFriendInvite(code, user_id) {
+  const r = await fetch('/api/handler?route=acceptFriendInvite', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ code, user_id })
+  });
+  return r.json(); // { success:true } | { error }
+}
 
