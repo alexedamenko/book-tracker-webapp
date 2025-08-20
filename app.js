@@ -11,7 +11,7 @@
    setBookCollections, createCollection, renameCollection, deleteCollection,
    // профили/друзья
    upsertProfile, listFriends, sendFriendRequest, listFriendRequests,
-   respondFriendRequest, friendsReadingNow, createFriendInvite, acceptFriendInvite
+   respondFriendRequest, friendsReadingNow, createFriendInvite, acceptFriendInvite,
    // группы и «книга недели»
    createGroup, listGroups, joinGroup, setGroupBook,
    groupDashboard, updateGroupProgress, listGroupComments, postGroupComment
