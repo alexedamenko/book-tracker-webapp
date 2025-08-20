@@ -441,4 +441,67 @@ toastui-editor-popup {
 }
 .sort-arrow:hover{ filter: brightness(.98); }
 
+  /* --- контент не должен прятаться под подвал --- */
+#app{
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+
+/* --- нижняя панель: 5 кнопок в один ряд, без скролла --- */
+.footer-nav{
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0,1fr));
+  gap: 6px;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: var(--tg-theme-bg-color, #fff);
+  border-top: 1px solid var(--tg-theme-hint-color, #e5e7eb);
+  backdrop-filter: saturate(120%) blur(6px);
+}
+.footer-nav > *{ min-width: 0; }
+
+/* сами кнопки — компактные, одной высоты */
+.footer-nav button{
+  height: 44px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--tg-theme-hint-color, #e5e7eb);
+  border-radius: 10px;
+  background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #111);
+  font: 600 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.footer-nav button:active{ transform: translateY(1px); }
+
+/* подписи можно спрятать на очень узких экранах */
+@media (max-width: 360px){
+  .footer-nav .label{ display: none; }
+}
+
+/* всплывающее меню форматов — плавает над подвалом и не лезет в сетку */
+.format-menu{
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  background: var(--tg-theme-bg-color, #fff);
+  color: var(--tg-theme-text-color, #111);
+  border: 1px solid var(--tg-theme-hint-color, #e5e7eb);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  padding: 6px;
+}
+.format-menu.hidden{ display: none; }
+.format-menu .format-option{
+  padding: 10px 14px; border-radius: 8px; cursor: pointer;
+}
+.format-menu .format-option:hover{
+  background: var(--tg-theme-secondary-bg-color, #f4f6fb);
+}
+
   
