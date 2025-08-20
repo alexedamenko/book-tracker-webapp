@@ -263,6 +263,14 @@ export async function acceptFriendInvite(code, user_id) {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ code, user_id })
   });
-  return r.json(); // { success:true } | { error }
+  return r.json();
+}
+
+export async function removeFriendship(user_id, friend_id) {
+  const r = await fetch('/api/handler?route=removeFriend', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id, friend_id })
+  });
+  return r.json();
 }
 
