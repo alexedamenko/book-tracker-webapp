@@ -11,7 +11,7 @@
    setBookCollections, createCollection, renameCollection, deleteCollection,
    // профили/друзья
    upsertProfile, listFriends, sendFriendRequest, listFriendRequests,
-   respondFriendRequest, friendsReadingNow,
+   respondFriendRequest, friendsReadingNow, createFriendInvite, acceptFriendInvite
    // группы и «книга недели»
    createGroup, listGroups, joinGroup, setGroupBook,
    groupDashboard, updateGroupProgress, listGroupComments, postGroupComment
@@ -1385,6 +1385,20 @@ window.showFriends = async function() {
       <input id="addByUsername" placeholder="Добавить по @username" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;">
       <button id="sendReq">Добавить</button>
     </div>
+    
+    // Вёрстка
+<div style="display:flex;gap:8px; margin:8px 0;">
+  <button id="makeCodeBtn">Мой код</button>
+  <div id="myCodeWrap" style="display:none; align-items:center; gap:8px;">
+    <code id="myCode" style="font-weight:700;"></code>
+    <button id="copyMyCode">Копировать</button>
+    <button id="shareMyCode">Поделиться</button>
+  </div>
+</div>
+<div style="display:flex;gap:8px; margin:8px 0 16px;">
+  <input id="friendCodeInput" placeholder="Ввести код друга" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;">
+  <button id="useCodeBtn">Добавить по коду</button>
+</div>
 
     ${requests.requests.length ? `
       <h3>Заявки</h3>
@@ -1398,6 +1412,7 @@ window.showFriends = async function() {
         </div>`;
       }).join('')}</div>
     ` : ''}
+    
 
     <h3>Мои друзья</h3>
     <div>
@@ -1415,6 +1430,36 @@ window.showFriends = async function() {
 
     <div class="footer-buttons"><button onclick="renderMainScreen()">← Назад</button></div>
   `;
+
+ const wrap = document.getElementById('myCodeWrap');
+document.getElementById('makeCodeBtn').onclick = async () => {
+  const r = await createFriendInvite(userId);
+  if (r?.code) {
+    document.getElementById('myCode').textContent = r.code;
+    wrap.style.display = 'inline-flex';
+  } else {
+    alert(r?.error || 'Не удалось создать код');
+  }
+};
+document.getElementById('copyMyCode').onclick = () => {
+  const c = document.getElementById('myCode').textContent;
+  if (c) navigator.clipboard.writeText(c);
+};
+document.getElementById('shareMyCode').onclick = () => {
+  const c = document.getElementById('myCode').textContent;
+  if (!c) return;
+  const text = `Добавь меня в друзья в Book Tracker. Код: ${c}`;
+  if (navigator.share) navigator.share({ text }).catch(()=>{});
+  else navigator.clipboard.writeText(text).then(()=>alert('Скопировано'));
+};
+document.getElementById('useCodeBtn').onclick = async () => {
+  const code = document.getElementById('friendCodeInput').value.trim();
+  if (!code) return;
+  const r = await acceptFriendInvite(code, userId);
+  if (r?.success) { alert('Готово! Вы теперь друзья.'); showFriends(); }
+  else alert(r?.error || 'Не удалось принять код');
+};
+
 
   document.getElementById('sendReq').onclick = async () => {
     const u = document.getElementById('addByUsername').value.trim();
