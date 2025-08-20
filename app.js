@@ -29,6 +29,8 @@ if (tg && tg.initDataUnsafe?.user?.id) {
   userId = "demo_user_001";
 }
 
+
+
 // Синхронизируем профиль в БД (не блокирует UI)
 (async () => {
   try {
@@ -43,6 +45,29 @@ if (tg && tg.initDataUnsafe?.user?.id) {
     console.warn('Profile sync failed', e);
   }
 })();
+
+// one-shot обработка start_param, чтобы не срабатывало повторно при каждом рендере
+(function handleStartParamOnce() {
+  try {
+    const sp = window.Telegram?.WebApp?.initDataUnsafe?.start_param || '';
+    if (!sp || !sp.startsWith('FRIEND_')) return;
+    const key = `friend_start_param_${sp}`;
+    if (sessionStorage.getItem(key)) return; // уже обработали
+    sessionStorage.setItem(key, '1');
+    const code = sp.slice(7);
+    acceptFriendInvite(code, String(userId)).then(r => {
+      if (r?.success) {
+        // можно показать мягкое уведомление
+        console.log('Friend invite accepted via deep link');
+      } else {
+        console.warn('Invite accept failed', r?.error);
+      }
+    });
+  } catch (e) {
+    console.warn('Start param handling failed', e);
+  }
+})();
+
 
 // Укажи юзернейм своего бота (без @)
 const BOT_USERNAME = window.__booktracker_chip_bot__ || 'your_bot'; // 
@@ -1386,7 +1411,6 @@ window.showFriends = async function() {
       <button id="sendReq">Добавить</button>
     </div>
     
-    // Вёрстка
 <div style="display:flex;gap:8px; margin:8px 0;">
   <button id="makeCodeBtn">Мой код</button>
   <div id="myCodeWrap" style="display:none; align-items:center; gap:8px;">
@@ -1435,23 +1459,49 @@ window.showFriends = async function() {
 document.getElementById('makeCodeBtn').onclick = async () => {
   const r = await createFriendInvite(userId);
   if (r?.code) {
-    document.getElementById('myCode').textContent = r.code;
-    wrap.style.display = 'inline-flex';
+    const link = makeFriendLink(r.code);
+    // сразу открываем в Telegram (если внутри клиента)
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openTelegramLink) tg.openTelegramLink(link);
+    else if (navigator.share) navigator.share({ url: link });
+    else {
+      await navigator.clipboard.writeText(link);
+      alert('Ссылка скопирована');
+    }
   } else {
     alert(r?.error || 'Не удалось создать код');
   }
 };
+ 
 document.getElementById('copyMyCode').onclick = () => {
   const c = document.getElementById('myCode').textContent;
   if (c) navigator.clipboard.writeText(c);
 };
 document.getElementById('shareMyCode').onclick = () => {
-  const c = document.getElementById('myCode').textContent;
+  const c = document.getElementById('myCode').textContent.trim();
   if (!c) return;
-  const text = `Добавь меня в друзья в Book Tracker. Код: ${c}`;
-  if (navigator.share) navigator.share({ text }).catch(()=>{});
-  else navigator.clipboard.writeText(text).then(()=>alert('Скопировано'));
+  const link = makeFriendLink(c);
+  const text = `Добавь меня в друзья в Book Tracker: ${link}`;
+
+  // 1) если Mini App внутри Telegram-клиента — откроем ссылку прямо в Telegram
+  const tg = window.Telegram?.WebApp;
+  if (tg?.openTelegramLink) {
+    tg.openTelegramLink(link);
+    return;
+  }
+
+  // 2) если поддерживается нативный share (мобильный браузер)
+  if (navigator.share) {
+    navigator.share({ text, url: link }).catch(()=>{});
+    return;
+  }
+
+  // 3) запасной вариант — копируем в буфер
+  navigator.clipboard.writeText(text)
+    .then(()=> alert('Ссылка скопирована'))
+    .catch(()=> window.prompt('Скопируйте ссылку:', link));
 };
+ 
 document.getElementById('useCodeBtn').onclick = async () => {
   const code = document.getElementById('friendCodeInput').value.trim();
   if (!code) return;
