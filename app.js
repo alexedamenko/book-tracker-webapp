@@ -82,35 +82,15 @@ function getStartParamSafe() {
   }
 })();
 
-// one-shot обработка start_param, чтобы не срабатывало повторно при каждом рендере
-(function handleStartParamOnce() {
-  try {
-    const sp = window.Telegram?.WebApp?.initDataUnsafe?.start_param || '';
-    if (!sp || !sp.startsWith('FRIEND_')) return;
-    const key = `friend_start_param_${sp}`;
-    if (sessionStorage.getItem(key)) return; // уже обработали
-    sessionStorage.setItem(key, '1');
-    const code = sp.slice(7);
-    acceptFriendInvite(code, String(userId)).then(r => {
-      if (r?.success) {
-        // можно показать мягкое уведомление
-        console.log('Friend invite accepted via deep link');
-      } else {
-        console.warn('Invite accept failed', r?.error);
-      }
-    });
-  } catch (e) {
-    console.warn('Start param handling failed', e);
-  }
-})();
-
 
 // Укажи юзернейм своего бота (без @)
-const BOT_USERNAME = window.__BOT_USERNAME__ || 'booktracker_chip_bot'; // 
+const BOT_USERNAME = window.__BOT_USERNAME__ || 'booktracker_chip_bot';
+const APP_SHORT_NAME = window.__APP_SHORT_NAME__ || 'chip'; // ← short name из BotFather
 
 function makeFriendLink(code) {
   const c = String(code || '').toUpperCase().trim();
-  return `https://t.me/${BOT_USERNAME}?startapp=FRIEND_${c}`;
+  // правильный формат с short name
+  return `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}?startapp=FRIEND_${c}`;
 }
 
 
@@ -1519,30 +1499,20 @@ document.getElementById('copyMyCode').onclick = async () => {
 document.getElementById('shareMyCode').onclick = () => {
   const c = document.getElementById('myCode').textContent.trim();
   if (!c) return;
-
-  const link = makeFriendLink(c);                   // https://t.me/<bot>?startapp=FRIEND_<CODE>
-  const caption = 'Добавь меня в друзья в Book Tracker'; // ← без ссылки!
+  const link = makeFriendLink(c);
+  const caption = 'Добавь меня в друзья в Book Tracker';
 
   const tg = window.Telegram?.WebApp;
-
-  // 1) Внутри Telegram: используем t.me/share — ссылка в url, текст отдельно
   if (tg?.openTelegramLink) {
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(caption)}`;
     tg.openTelegramLink(shareUrl);
-    return;
-  }
-
-  // 2) Web Share API: передаём url, а в text — только подпись (без ссылки)
-  if (navigator.share) {
+  } else if (navigator.share) {
     navigator.share({ url: link, text: caption }).catch(()=>{});
-    return;
+  } else {
+    navigator.clipboard.writeText(link).then(()=>alert('Ссылка скопирована'));
   }
-
-  // 3) Фоллбэк: копируем одну ссылку
-  navigator.clipboard.writeText(link)
-    .then(()=> alert('Ссылка скопирована'))
-    .catch(()=> window.prompt('Скопируйте ссылку:', link));
 };
+
 
 
  
