@@ -202,17 +202,19 @@ loadCurrentCollection();
     ${visible.length ? visible.map(renderBookCard).join("") : "<p>📭 Нет книг в этой категории</p>"}
     </div>
 
-    <div class="footer-buttons">
-      <button id="exportBtn">📤 Export</button>
-      <div id="formatMenu" class="hidden">
-        <div class="format-option" data-format="csv">CSV</div>
-        <div class="format-option" data-format="json">JSON</div>
-      </div>
-      <button onclick="showStats()">📊 <span class="label">Статистика</button>
-      <button onclick="showSearch()">🔍 <span class="label">Поиск</span></button>
-      <button onclick="showFriends()">👥 <span class="label">Друзья</span></button>
-      <button onclick="showGroups()">👥 <span class="label">Группы</span></button>
-    </div>
+<div class="footer-nav">
+  <button onclick="toggleExportMenu()" id="exportBtn">⬆️ <span class="label">Экспорт</span></button>
+  <button onclick="showStats()">📊 <span class="label">Статистика</span></button>
+  <button onclick="showSearch()">🔎 <span class="label">Поиск</span></button>
+  <button onclick="showFriends()">👥 <span class="label">Друзья</span></button>
+  <button onclick="showGroups()">👥 <span class="label">Группы</span></button>
+</div>
+
+<!-- всплывающее меню форматов оставляем как есть -->
+<div id="formatMenu" class="format-menu hidden">
+  <div class="format-option" data-format="csv">CSV</div>
+  <div class="format-option" data-format="json">JSON</div>
+</div>
   `;
 
   // смена ключа сортировки
