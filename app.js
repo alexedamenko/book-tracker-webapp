@@ -1459,48 +1459,48 @@ window.showFriends = async function() {
 document.getElementById('makeCodeBtn').onclick = async () => {
   const r = await createFriendInvite(userId);
   if (r?.code) {
-    const link = makeFriendLink(r.code);
-    // сразу открываем в Telegram (если внутри клиента)
-    const tg = window.Telegram?.WebApp;
-    if (tg?.openTelegramLink) tg.openTelegramLink(link);
-    else if (navigator.share) navigator.share({ url: link });
-    else {
-      await navigator.clipboard.writeText(link);
-      alert('Ссылка скопирована');
-    }
+    document.getElementById('myCode').textContent = r.code;
+    wrap.style.display = 'inline-flex';     // показать блок с кодом
+    // ничего не открываем! ни openTelegramLink, ни openLink
   } else {
     alert(r?.error || 'Не удалось создать код');
   }
 };
+
  
-document.getElementById('copyMyCode').onclick = () => {
-  const c = document.getElementById('myCode').textContent;
-  if (c) navigator.clipboard.writeText(c);
-};
-document.getElementById('shareMyCode').onclick = () => {
+document.getElementById('copyMyCode').onclick = async () => {
   const c = document.getElementById('myCode').textContent.trim();
   if (!c) return;
   const link = makeFriendLink(c);
+  await navigator.clipboard.writeText(link);
+  alert('Ссылка скопирована');
+};
+
+document.getElementById('shareMyCode').onclick = () => {
+  const c = document.getElementById('myCode').textContent.trim();
+  if (!c) return;
+
+  const link = makeFriendLink(c); // https://t.me/<bot>?startapp=FRIEND_<CODE>
   const text = `Добавь меня в друзья в Book Tracker: ${link}`;
 
-  // 1) если Mini App внутри Telegram-клиента — откроем ссылку прямо в Telegram
   const tg = window.Telegram?.WebApp;
+  // 1) внутри Telegram — откроем "поделиться ссылкой" (выбор чата)
   if (tg?.openTelegramLink) {
-    tg.openTelegramLink(link);
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+    tg.openTelegramLink(shareUrl);
     return;
   }
-
-  // 2) если поддерживается нативный share (мобильный браузер)
+  // 2) обычный браузер — системный шэр
   if (navigator.share) {
     navigator.share({ text, url: link }).catch(()=>{});
     return;
   }
-
-  // 3) запасной вариант — копируем в буфер
+  // 3) запасной вариант — копируем
   navigator.clipboard.writeText(text)
     .then(()=> alert('Ссылка скопирована'))
     .catch(()=> window.prompt('Скопируйте ссылку:', link));
 };
+
  
 document.getElementById('useCodeBtn').onclick = async () => {
   const code = document.getElementById('friendCodeInput').value.trim();
