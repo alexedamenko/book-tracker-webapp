@@ -17,7 +17,7 @@ const DEFAULT_HEADERS = {
 };
 
 // Обязательно: если используешь чтение req.body от Next.js
-export const config = { api: { bodyParser: true } };
+export const config = { runtime: 'nodejs', api: { bodyParser: true } };
 // Универсальный JSON-ридер: берёт req.body (Next), иначе читает поток
 async function readJsonBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -660,8 +660,10 @@ async function googleCandidate(isbn13) {
 }
 
 async function olIsbnCandidate(isbn13) {
-  const r = await fetchWithTimeout(`https://openlibrary.org/isbn/${isbn13}.json`),
-    { headers: DEFAULT_HEADERS }
+ const r = await fetchWithTimeout(
+  `https://openlibrary.org/isbn/${isbn13}.json`,
+  { headers: DEFAULT_HEADERS }
+);
   if (!r?.ok) return null;
   const j = await r.json().catch(() => null);
   if (!j) return null;
@@ -713,8 +715,10 @@ async function olBibkeysCandidate(isbn13) {
 }
 
 async function olSearchCandidate(isbn13) {
-  const r = await fetchWithTimeout(`https://openlibrary.org/search.json?isbn=${isbn13}`),
-    { headers: DEFAULT_HEADERS }
+  const r = await fetchWithTimeout(
+  `https://openlibrary.org/search.json?isbn=${isbn13}`,
+  { headers: DEFAULT_HEADERS }
+);
   if (!r?.ok) return null;
   const j = await r.json().catch(() => null);
   const doc = Array.isArray(j?.docs) && j.docs[0];
