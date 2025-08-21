@@ -15,6 +15,31 @@ async function readJsonBody(req) {
   const raw = Buffer.concat(chunks).toString('utf8').trim();
   return raw ? JSON.parse(raw) : {};
 }
+// ==== timeouts & helpers ====
+const FAST_TIMEOUT = 1400; // мс
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function fetchWithTimeout(url, opts={}, ms=FAST_TIMEOUT){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort('timeout'), ms);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(t); }
+}
+async function safe(p){ try { return await p; } catch { return null; } }
+const CYR = /[А-Яа-яЁё]/;
+function pickBest(cands=[]){
+  if(!cands.length) return null;
+  for(const c of cands){
+    let s = 0;
+    if(c.language === 'ru') s+=4;
+    if(CYR.test((c.title||''))) s+=3;
+    if(CYR.test((c.authors||''))) s+=2;
+    if(c.cover_url) s+=1;
+    c._score = s;
+  }
+  cands.sort((a,b)=>(b._score||0)-(a._score||0));
+  return cands[0];
+}
 
 // 📌 Маршруты API
 const routes = {
@@ -468,241 +493,269 @@ async function mirrorCoverToSupabase(url) {
   } catch { return null; }
 }
 
-// Лабиринт: идём на выдачу, берём ссылку первой книги, парсим JSON-LD на карточке
-async function fetchLabirint(isbn) {
-  try {
+// Лабиринт: ищем → переходим на первую карточку → парсим JSON-LD/og
+async function fetchLabirint(isbn){
+  try{
     const headers = {
-      'User-Agent': 'Mozilla/5.0',
-      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.7',
-      'Referer': 'https://www.labirint.ru/'
+      'User-Agent':'Mozilla/5.0',
+      'Accept-Language':'ru-RU,ru;q=0.9,en-US;q=0.7',
+      'Referer':'https://www.labirint.ru/'
     };
     const searchUrl = `https://www.labirint.ru/search/${isbn}/?stype=0`;
-    const r = await fetch(searchUrl, { headers });
-    if (!r.ok) return null;
+    const r = await fetchWithTimeout(searchUrl, { headers });
+    if(!r?.ok) return null;
     const html = await r.text();
 
-    // первая ссылка карточки /books/ID/
     let m = html.match(/href="(\/books\/\d+\/)"/i);
     let detailUrl = m ? `https://www.labirint.ru${m[1]}` : null;
-    if (!detailUrl) {
+    if(!detailUrl){
       const m2 = html.match(/data-product-id="(\d+)"/i);
-      if (m2) detailUrl = `https://www.labirint.ru/books/${m2[1]}/`;
+      if(m2) detailUrl = `https://www.labirint.ru/books/${m2[1]}/`;
     }
-    if (!detailUrl) return null;
+    if(!detailUrl) return null;
 
-    const r2 = await fetch(detailUrl, { headers });
-    if (!r2.ok) return null;
+    const r2 = await fetchWithTimeout(detailUrl, { headers });
+    if(!r2?.ok) return null;
     const html2 = await r2.text();
 
-    // JSON-LD @type=Book
     const blocks = html2.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
-    if (blocks) {
-      for (const block of blocks) {
-        try {
+    if(blocks){
+      for(const block of blocks){
+        try{
           const json = JSON.parse(block.replace(/^[\s\S]*?<script[^>]*>/,'').replace(/<\/script>[\s\S]*$/,''));
           const item = Array.isArray(json)
             ? json.find(x => x && (x['@type']==='Book' || (Array.isArray(x['@type']) && x['@type'].includes('Book'))))
             : (json && (json['@type']==='Book' || (Array.isArray(json['@type']) && json['@type'].includes('Book'))) ? json : null);
-          if (item) {
+          if(item){
             const title = item.name || item.headline || '';
-            const authors = Array.isArray(item.author) ? item.author.map(a=>a?.name).filter(Boolean).join(', ') : (item.author?.name || '');
+            const authors = Array.isArray(item.author) ? item.author.map(a=>a?.name).filter(Boolean).join(', ') : (item.author?.name||'');
             let cover = null;
-            if (typeof item.image === 'string') cover = item.image;
-            else if (Array.isArray(item.image)) cover = item.image.find(Boolean) || null;
+            if(typeof item.image === 'string') cover = item.image;
+            else if(Array.isArray(item.image)) cover = item.image.find(Boolean) || null;
 
             return {
-              source: 'labirint',
-              isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
-              isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
-              title,
-              authors,
-              publisher: '',
-              published_year: null,
-              language: /[А-Яа-яЁё]/.test(title + ' ' + authors) ? 'ru' : null,
-              page_count: null,
-              description: '',
+              source:'labirint',
+              isbn13:/^\d{13}$/.test(isbn)?isbn:null,
+              isbn10:/^\d{10}$/.test(isbn)?isbn:null,
+              title, authors,
+              publisher:'', published_year:null,
+              language: CYR.test(title+' '+authors)?'ru':null,
+              page_count:null, description:'',
               cover_url: cover || null,
-              _raw: { detail: detailUrl }
+              _raw:{ detail: detailUrl }
             };
           }
-        } catch {}
+        }catch{}
       }
     }
-
-    // og:* фолбэк с карточки
-    const ogTitle = html2.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1] || '';
-    const ogImg   = html2.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1] || '';
-    if (ogTitle) {
+    const ogTitle = html2.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1]||'';
+    const ogImg   = html2.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1]||'';
+    if(ogTitle){
       return {
-        source: 'labirint:og',
-        isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
-        isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
-        title: ogTitle,
-        authors: '',
-        publisher: '',
-        published_year: null,
-        language: /[А-Яа-яЁё]/.test(ogTitle) ? 'ru' : null,
-        page_count: null,
-        description: '',
+        source:'labirint:og',
+        isbn13:/^\d{13}$/.test(isbn)?isbn:null,
+        isbn10:/^\d{10}$/.test(isbn)?isbn:null,
+        title: ogTitle, authors:'', publisher:'', published_year:null,
+        language: CYR.test(ogTitle)?'ru':null,
+        page_count:null, description:'',
         cover_url: ogImg || null,
-        _raw: { detail: detailUrl, og: true }
+        _raw:{ detail: detailUrl, og:true }
       };
     }
     return null;
-  } catch { return null; }
+  }catch{ return null; }
 }
-// Литрес: со списка переходим на /book/… и парсим JSON-LD/og на карточке
-async function fetchLitres(isbn) {
-  try {
+
+// Литрес: то же самое
+async function fetchLitres(isbn){
+  try{
     const headers = {
-      'User-Agent': 'Mozilla/5.0',
-      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.7',
-      'Referer': 'https://www.litres.ru/'
+      'User-Agent':'Mozilla/5.0',
+      'Accept-Language':'ru-RU,ru;q=0.9,en-US;q=0.7',
+      'Referer':'https://www.litres.ru/'
     };
-    const r = await fetch(`https://www.litres.ru/search/?q=${encodeURIComponent(isbn)}`, { headers });
-    if (!r.ok) return null;
+    const r = await fetchWithTimeout(`https://www.litres.ru/search/?q=${encodeURIComponent(isbn)}`, { headers });
+    if(!r?.ok) return null;
     const html = await r.text();
 
-    // первая карточка /book/....../
     const m = html.match(/href="(\/book\/[^"?#]+\/)"/i);
-    if (!m) return null;
+    if(!m) return null;
     const detailUrl = `https://www.litres.ru${m[1]}`;
 
-    const r2 = await fetch(detailUrl, { headers });
-    if (!r2.ok) return null;
+    const r2 = await fetchWithTimeout(detailUrl, { headers });
+    if(!r2?.ok) return null;
     const html2 = await r2.text();
 
-    // JSON-LD @type=Book
     const blocks = html2.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
-    if (blocks) {
-      for (const block of blocks) {
-        try {
+    if(blocks){
+      for(const block of blocks){
+        try{
           const json = JSON.parse(block.replace(/^[\s\S]*?<script[^>]*>/,'').replace(/<\/script>[\s\S]*$/,''));
           const item = Array.isArray(json)
             ? json.find(x => x && (x['@type']==='Book' || (Array.isArray(x['@type']) && x['@type'].includes('Book'))))
             : (json && (json['@type']==='Book' || (Array.isArray(json['@type']) && json['@type'].includes('Book'))) ? json : null);
-          if (item) {
+          if(item){
             const title = item.name || item.headline || '';
-            const authors = Array.isArray(item.author) ? item.author.map(a => a?.name).filter(Boolean).join(', ') : (item.author?.name || '');
+            const authors = Array.isArray(item.author) ? item.author.map(a=>a?.name).filter(Boolean).join(', ') : (item.author?.name||'');
             let cover = null;
-            if (typeof item.image === 'string') cover = item.image;
-            else if (Array.isArray(item.image)) cover = item.image.find(Boolean) || null;
-
+            if(typeof item.image === 'string') cover = item.image;
+            else if(Array.isArray(item.image)) cover = item.image.find(Boolean) || null;
             return {
-              source: 'litres',
-              isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
-              isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
-              title: title || '',
-              authors: authors || '',
-              publisher: '',
-              published_year: null,
-              language: /[А-Яа-яЁё]/.test(title + ' ' + authors) ? 'ru' : null,
-              page_count: null,
-              description: '',
+              source:'litres',
+              isbn13:/^\d{13}$/.test(isbn)?isbn:null,
+              isbn10:/^\d{10}$/.test(isbn)?isbn:null,
+              title: title||'', authors: authors||'',
+              publisher:'', published_year:null,
+              language: CYR.test(title+' '+authors)?'ru':null,
+              page_count:null, description:'',
               cover_url: cover || null,
-              _raw: { detail: detailUrl, jsonld: true }
+              _raw:{ detail: detailUrl, jsonld:true }
             };
           }
-        } catch {}
+        }catch{}
       }
     }
-
-    // og:* фолбэк с карточки
-    const ogTitle = html2.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1] || '';
-    const ogImg   = html2.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1] || '';
-    if (ogTitle) {
+    const ogTitle = html2.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1]||'';
+    const ogImg   = html2.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1]||'';
+    if(ogTitle){
       return {
-        source: 'litres:og',
-        isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
-        isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
-        title: ogTitle,
-        authors: '',
-        publisher: '',
-        published_year: null,
-        language: /[А-Яа-яЁё]/.test(ogTitle) ? 'ru' : null,
-        page_count: null,
-        description: '',
+        source:'litres:og',
+        isbn13:/^\d{13}$/.test(isbn)?isbn:null,
+        isbn10:/^\d{10}$/.test(isbn)?isbn:null,
+        title: ogTitle, authors:'', publisher:'', published_year:null,
+        language: CYR.test(ogTitle)?'ru':null,
+        page_count:null, description:'',
         cover_url: ogImg || null,
-        _raw: { detail: detailUrl, og: true }
+        _raw:{ detail: detailUrl, og:true }
       };
     }
     return null;
-  } catch { return null; }
+  }catch{ return null; }
 }
 
 
-
-    
-
-   
 // GET /api/handler?route=isbnLookup&isbn=...
 routes.isbnLookup = async (req, res, params) => {
+  const debug = params.get('debug') === '1';
   const raw = params.get('isbn') || '';
   const isbn13 = normalizeToIsbn13(raw);
   if (!isbn13) return res.status(400).json({ error: 'Некорректный ISBN' });
 
-  // 0) кэш
+  // кэш
   const cached = await getFromCacheByIsbn13(isbn13, supabase);
-  if (cached) return res.json(cached);
+  if (cached && !debug) return res.json(cached);
 
+  const t0 = Date.now();
+  const steps = [];
+  const wrap = (name, fn) => (async () => {
+    const s = Date.now();
+    try { const v = await fn(); steps.push({name, ok:!!v, ms:Date.now()-s}); return v; }
+    catch (e) { steps.push({name, ok:false, ms:Date.now()-s, err:String(e)}); return null; }
+  })();
+
+  // пуляем ВСЁ параллельно (каждый со своим таймаутом)
+  const results = await Promise.allSettled([
+    wrap('google',      () => fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn13}`)),
+    wrap('ol:isbn',     () => fetchWithTimeout(`https://openlibrary.org/isbn/${isbn13}.json`)),
+    wrap('ol:bibkeys',  () => fetchWithTimeout(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn13}&format=json&jscmd=data`)),
+    wrap('ol:search',   () => fetchWithTimeout(`https://openlibrary.org/search.json?isbn=${isbn13}`)),
+    wrap('labirint',    () => fetchLabirint(isbn13)),
+    wrap('litres',      () => fetchLitres(isbn13)),
+  ]);
+
+  // нормализуем результаты в кандидаты
   const candidates = [];
 
-  // 1) Google
-  const g = await fetchGoogle(isbn13);
-  if (g) candidates.push(g);
-
-  // 2) OpenLibrary прямой
-  const ol1 = await fetchOL_IsbnJson(isbn13);
-  if (ol1) candidates.push(ol1);
-
-  // 3) OL api/books
-  const ol2 = await fetchOL_Bibkeys(isbn13);
-  if (ol2) candidates.push(ol2);
-
-  // 4) OL search
-  const ol3 = await fetchOL_SearchByIsbn(isbn13);
-  if (ol3) candidates.push(ol3);
-
-  // 5) Если 978 — попробуем ISBN-10 (некоторые RU издания лежат только под 10)
-  const isbn10 = isbn13to10(isbn13);
-  if (isbn10) {
-    const ol10a = await fetchOL_IsbnJson(isbn10); if (ol10a) candidates.push(ol10a);
-    const ol10b = await fetchOL_Bibkeys(isbn10);  if (ol10b) candidates.push(ol10b);
-    const ol10c = await fetchOL_SearchByIsbn(isbn10); if (ol10c) candidates.push(ol10c);
+  // Google → нормализация
+  const g = results[0].status==='fulfilled' && results[0].value;
+  if (g && g.ok) {
+    const j = await g.json().catch(()=>null);
+    const v = j?.items?.[0]?.volumeInfo;
+    if (v) {
+      const ids = v.industryIdentifiers||[];
+      const isbn10 = ids.find(i=>i.type==='ISBN_10')?.identifier || null;
+      const cover = v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail || null;
+      candidates.push({
+        source:'google',
+        isbn13, isbn10,
+        title: v.title||'',
+        authors: Array.isArray(v.authors)?v.authors.join(', '):'',
+        publisher: v.publisher||'',
+        published_year: (v.publishedDate||'').slice(0,4)||null,
+        language: v.language||null,
+        page_count: v.pageCount||null,
+        description: v.description||'',
+        cover_url: cover ? cover.replace('http://','https://') : null,
+      });
+    }
   }
 
-  // 6) Ритейлеры (часто у RU есть JSON-LD + обложка)
-  const lab = await fetchLabirint(isbn13); if (lab) candidates.push(lab);
-  const lt = await fetchLitres(isbn13);
-  if (lt) candidates.push(lt);
-
-
-  if (!candidates.length) return res.status(404).json({ error: 'Не найдено в источниках' });
-
-  // Выбор лучшего
-  let meta = pickBest(candidates);
-
-  // fallback по языку
-  if (!meta.language && /^9785/.test(isbn13)) meta.language = 'ru';
-
-  // если нет обложки — попробуем взять из любого кандидата
-  if (!meta.cover_url) {
-    const withCover = candidates.find(c => c.cover_url);
-    if (withCover?.cover_url) meta.cover_url = withCover.cover_url;
+  // OL isbn
+  const oli = results[1].status==='fulfilled' && results[1].value;
+  if (oli && oli.ok){
+    const j = await oli.json().catch(()=>null);
+    if (j){
+      const publish_date = Array.isArray(j.publish_date)? j.publish_date[0] : j.publish_date;
+      const published_year = publish_date ? String(publish_date).slice(-4) : null;
+      const authors = Array.isArray(j.authors) ? j.authors.map(a=>a.name||a.key).join(', ') : '';
+      candidates.push({
+        source:'openlibrary:isbn',
+        isbn13, title:j.title||'', authors,
+        publisher: Array.isArray(j.publishers)? j.publishers[0] : (j.publishers||''),
+        published_year, language: (Array.isArray(j.languages)&&j.languages[0]?.key?.split('/').pop())||null,
+        page_count: j.number_of_pages||null, description: typeof j.description==='string'? j.description : (j.description?.value||''),
+        cover_url: `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`
+      });
+    }
   }
 
-  // зеркалим обложку в Supabase, чтобы ссылка была стабильной
-  if (meta.cover_url && !meta.cover_url.includes('supabase.co')) {
-    const mirrored = await mirrorCoverToSupabase(meta.cover_url);
-    if (mirrored) meta.cover_url = mirrored;
+  // OL api/books
+  const olb = results[2].status==='fulfilled' && results[2].value;
+  if (olb && olb.ok){
+    const j = await olb.json().catch(()=>null);
+    const d = j && j[`ISBN:${isbn13}`];
+    if (d){
+      const title = d.title||'';
+      const authors = Array.isArray(d.authors)? d.authors.map(a=>a.name).join(', ') : (d.authors?.name||'');
+      const cover = d.cover?.large || d.cover?.medium || d.cover?.small || `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`;
+      const pub = Array.isArray(d.publishers) ? d.publishers[0]?.name : (d.publishers?.name||'');
+      const year = (d.publish_date||'').slice(-4)||null;
+      candidates.push({ source:'openlibrary:api_books', isbn13, title, authors, publisher:pub||'', published_year:year, language:null, page_count:d.number_of_pages||null, description:'', cover_url:cover });
+    }
   }
 
-  // доводим структуру
-  meta.isbn13 = meta.isbn13 || isbn13;
+  // OL search
+  const ols = results[3].status==='fulfilled' && results[3].value;
+  if (ols && ols.ok){
+    const j = await ols.json().catch(()=>null);
+    const doc = Array.isArray(j?.docs) && j.docs[0];
+    if (doc){
+      const title = doc.title || doc.title_suggest || '';
+      const authors = Array.isArray(doc.author_name)? doc.author_name.join(', ') : '';
+      const year = doc.first_publish_year ? String(doc.first_publish_year) : null;
+      candidates.push({ source:'openlibrary:search', isbn13, title, authors, publisher:'', published_year:year, language:(Array.isArray(doc.language) && doc.language[0])||null, page_count:null, description:'', cover_url:`https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg` });
+    }
+  }
 
-  await saveToCache(meta, supabase);
-  res.json(meta);
+  // Лабиринт/Литрес уже возвращают нормализованную структуру
+  const lab = results[4].status==='fulfilled' ? results[4].value : null; if (lab) candidates.push(lab);
+  const lit = results[5].status==='fulfilled' ? results[5].value : null; if (lit) candidates.push(lit);
+
+  if (!candidates.length) {
+    if (debug) return res.status(404).json({ error:'Не найдено в источниках', _debug:{ steps, total_ms: Date.now()-t0 } });
+    return res.status(404).json({ error:'Не найдено в источниках' });
+  }
+
+  let best = pickBest(candidates);
+  if (!best.language && /^9785/.test(isbn13)) best.language = 'ru';
+  if (!best.cover_url) best.cover_url = `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`;
+  best.isbn13 = best.isbn13 || isbn13;
+
+  await saveToCache(best, supabase);
+  if (debug) return res.json({ ...best, _debug:{ steps, total_ms: Date.now()-t0 } });
+  res.json(best);
 };
+
 
 
 
