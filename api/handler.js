@@ -506,77 +506,76 @@ async function fetchLabirint(isbn) {
   } catch { return null; }
 }
 
-// LitRes: берём JSON-LD (Book) и/или og:* мета-теги со страницы поиска
-async function fetchLitres(isbn) {
+// goodreads: берём JSON-LD (Book) и/или og:* мета-теги со страницы поиска
+async function fetchGoodreads(isbn) {
   try {
-    const url = `https://www.litres.ru/search/?q=${isbn}`;
-    const r = await fetchWithTimeout(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Accept-Language': 'ru-RU,ru;q=0.9'
-      }
-    }, DEEP_TIMEOUT);
-    if (!r?.ok) return null;
+    const headers = {
+      'User-Agent': 'Mozilla/5.0',
+      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
+    };
 
+    // 1) Прямая карточка по ISBN
+    let r = await fetch(`https://www.goodreads.com/book/isbn/${isbn}`, { headers });
+    if (!r.ok) {
+      // 2) Fallback: поиск по ISBN
+      r = await fetch(`https://www.goodreads.com/search?q=${encodeURIComponent(isbn)}`, { headers });
+      if (!r.ok) return null;
+    }
     const html = await r.text();
 
-    // 1) JSON-LD: ищем <script type="application/ld+json"> ... @type=Book
-    const blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g);
+    // --- JSON-LD (@type=Book) ---
+    const blocks = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
     if (blocks) {
       for (const block of blocks) {
         try {
           const json = JSON.parse(
-            block
-              .replace(/^[\s\S]*?<script type="application\/ld\+json">/, '')
-              .replace(/<\/script>[\s\S]*$/, '')
+            block.replace(/^[\s\S]*?<script[^>]*>/, '').replace(/<\/script>[\s\S]*$/, '')
           );
-
-          // JSON-LD может быть массивом
           const item = Array.isArray(json)
             ? json.find(x => x && (x['@type'] === 'Book' || (Array.isArray(x['@type']) && x['@type'].includes('Book'))))
             : (json && (json['@type'] === 'Book' || (Array.isArray(json['@type']) && json['@type'].includes('Book'))) ? json : null);
-
           if (item) {
             const title = item.name || item.headline || '';
             const authors = Array.isArray(item.author)
               ? item.author.map(a => a?.name).filter(Boolean).join(', ')
               : (item.author?.name || '');
 
-            // Иногда ISBN отсутствует в JSON-LD — это нормально
-            // Считаем это кандидатом по названию/автору (кириллица) и тянем обложку
-            let cover = item.image || '';
+            let cover = null;
+            if (typeof item.image === 'string') cover = item.image;
+            else if (Array.isArray(item.image)) cover = item.image.find(Boolean) || null;
 
-            // Fallback: og:image
-            if (!cover) {
-              const ogImg = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1];
-              if (ogImg) cover = ogImg;
+            let average_rating = null, ratings_count = null;
+            if (item.aggregateRating) {
+              average_rating = item.aggregateRating.ratingValue ?? null;
+              ratings_count = item.aggregateRating.ratingCount ?? item.aggregateRating.reviewCount ?? null;
             }
 
             return {
-              source: 'litres',
+              source: 'goodreads',
               isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
               isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
               title: title || '',
               authors: authors || '',
               publisher: '',
               published_year: null,
-              language: (title && /[А-Яа-яЁё]/.test(title)) || (authors && /[А-Яа-яЁё]/.test(authors)) ? 'ru' : null,
+              language: /[А-Яа-яЁё]/.test(title + authors) ? 'ru' : null,
               page_count: null,
               description: '',
               cover_url: cover || null,
-              _raw: item
+              goodreads: (average_rating || ratings_count) ? { average_rating, ratings_count } : undefined,
+              _raw: { jsonld: true }
             };
           }
         } catch {}
       }
     }
 
-    // 2) Если JSON-LD не нашли — попробуем og:* мета-теги как грубый кандидат
+    // --- og:* fallback ---
     const ogTitle = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1] || '';
-    const ogImg = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1] || '';
+    const ogImg   = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1] || '';
     if (ogTitle) {
       return {
-        source: 'litres:og',
+        source: 'goodreads:og',
         isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
         isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
         title: ogTitle,
@@ -587,7 +586,7 @@ async function fetchLitres(isbn) {
         page_count: null,
         description: '',
         cover_url: ogImg || null,
-        _raw: { ogTitle, ogImg }
+        _raw: { og: true }
       };
     }
 
@@ -597,7 +596,7 @@ async function fetchLitres(isbn) {
   }
 }
 
-
+   
 // GET /api/handler?route=isbnLookup&isbn=...
 routes.isbnLookup = async (req, res, params) => {
   const raw = params.get('isbn') || '';
@@ -636,7 +635,7 @@ routes.isbnLookup = async (req, res, params) => {
 
   // 6) Ритейлеры (часто у RU есть JSON-LD + обложка)
   const lab = await fetchLabirint(isbn13); if (lab) candidates.push(lab);
-  const b24 = await fetchLitres(isbn13);  if (b24) candidates.push(b24);
+  const b24 = await fetchGoodreads(isbn);  if (b24) candidates.push(b24);
 
   if (!candidates.length) return res.status(404).json({ error: 'Не найдено в источниках' });
 
