@@ -1,12 +1,21 @@
 // 📁 handler.js — единая серверная функция (масштабируемая)
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-// Обязательно: если используешь чтение req.body от Next.js
-export const config = { api: { bodyParser: true } };
+// Принудительно Node.js, чтобы был Buffer и прочие Node API
+export const config = { runtime: 'nodejs', api: { bodyParser: true } };
+
+// Ленивое создание клиента с понятной ошибкой, если нет env
+let supabase = null;
+function ensureDB() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error('Server misconfigured: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
+  }
+  if (!supabase) supabase = createClient(url, key);
+  return supabase;
+}
+
 // Универсальный JSON-ридер: берёт req.body (Next), иначе читает поток
 async function readJsonBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -89,23 +98,6 @@ async getBooks(req, res, params) {
   }
 };
 
-// 📌 Главный обработчик
-export default async function handler(req, res) {
-  // CORS (если тестируешь с фронта локально)
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
-
-  const fullUrl = new URL(req.url, `http://${req.headers.host}`);
-  const route = fullUrl.searchParams.get("route");
-  const params = fullUrl.searchParams;
-
-  console.log(`📥 ${req.method} /api/handler?route=${route}`);
-
-  if (!route || !routes[route]) {
-    return res.status(404).json({ error: "Route not found" });
-  }
 
   // Вызываем маршрут
   try {
@@ -128,6 +120,7 @@ routes.listCollections = async (req, res, params) => {
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
+  // Если нет sort_order
   if (error && error.code === '42703') {
     ({ data, error } = await supabase
       .from('collections')
@@ -139,6 +132,7 @@ routes.listCollections = async (req, res, params) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+
 
 
 // POST JSON { user_id, name, icon?, color? }
@@ -278,12 +272,12 @@ routes.upsertProfile = async (req, res) => {
   const { user_id, username, name, avatar_url } = await readJsonBody(req);
   if (!user_id) return res.status(400).json({ error: 'user_id required' });
 
-  const { error } = await supabase
-    .from('user_profiles')
-    .upsert(
-      [{ user_id, username, name, avatar_url, updated_at: new Date().toISOString() }],
-      { onConflict: 'user_id' } // 👈 добавь это
-    );
+const { error } = await supabase
+  .from('user_profiles')
+  .upsert(
+    [{ user_id, username, name, avatar_url, updated_at: new Date().toISOString() }],
+    { onConflict: 'user_id' }
+  );
 
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
@@ -315,6 +309,15 @@ routes.listFriends = async (req, res, params) => {
   if (e2) return res.status(500).json({ error: e2.message });
 
   res.json(profs || []);
+};
+
+routes.health = async (req, res) => {
+  res.json({
+    ok: true,
+    node: !!global.Buffer,
+    hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  });
 };
 
 // POST { from_user, to_username } — отправить заявку по @username
@@ -767,7 +770,30 @@ routes.isbnLookup = async (req, res, params) => {
   await saveToCache(meta, supabase);
   res.json(meta);
 };
+// 📌 Главный обработчик
+export default async function handler(req, res) {
+  // CORS (если тестируешь с фронта локально)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
 
+  const fullUrl = new URL(req.url, `http://${req.headers.host}`);
+  const route = fullUrl.searchParams.get("route");
+  const params = fullUrl.searchParams;
+  
+try {
+  ensureDB();
+} catch (e) {
+  // Это как раз та ситуация, когда на Vercel забыли переменные окружения
+  return res.status(500).send(e.message);
+}
+
+  console.log(`📥 ${req.method} /api/handler?route=${route}`);
+
+  if (!route || !routes[route]) {
+    return res.status(404).json({ error: "Route not found" });
+  }
 
 
 
