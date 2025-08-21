@@ -635,7 +635,8 @@ routes.isbnLookup = async (req, res, params) => {
 
   // 6) Ритейлеры (часто у RU есть JSON-LD + обложка)
   const lab = await fetchLabirint(isbn13); if (lab) candidates.push(lab);
-  const b24 = await fetchGoodreads(isbn);  if (b24) candidates.push(b24);
+  const gr = await fetchGoodreads(isbn13);
+  if (gr) candidates.push(gr);
 
   if (!candidates.length) return res.status(404).json({ error: 'Не найдено в источниках' });
 
