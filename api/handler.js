@@ -340,24 +340,144 @@ async function fetchOpenLibrary(isbn13){
   };
 }
 
+// --- OpenLibrary helpers для русских изданий ---
+async function fetchOL_IsbnJson(isbn) {
+  const r = await fetch(`https://openlibrary.org/isbn/${isbn}.json`);
+  if (!r.ok) return null;
+  const j = await r.json();
+  const publish_date = (Array.isArray(j.publish_date)? j.publish_date[0]: j.publish_date) || '';
+  const published_year = publish_date ? publish_date.slice(-4) : null;
+  const authors = Array.isArray(j.authors) ? j.authors.map(a=>a.name||a.key).join(', ') : '';
+  const cover = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+  return {
+    source: 'openlibrary:isbn',
+    isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
+    isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
+    title: j.title || '',
+    authors,
+    publisher: Array.isArray(j.publishers)? j.publishers[0] : (j.publishers||''),
+    published_year,
+    language: (Array.isArray(j.languages)&&j.languages[0]?.key?.split('/').pop()) || null,
+    page_count: j.number_of_pages || null,
+    description: typeof j.description === 'string' ? j.description : (j.description?.value || ''),
+    cover_url: cover,
+    _raw: j
+  };
+}
+
+async function fetchOL_Bibkeys(isbn) {
+  const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
+  if (!r.ok) return null;
+  const j = await r.json();
+  const k = `ISBN:${isbn}`;
+  const d = j[k];
+  if (!d) return null;
+  const title = d.title || '';
+  const authors = Array.isArray(d.authors) ? d.authors.map(a=>a.name).join(', ') : '';
+  const cover = d.cover?.large || d.cover?.medium || d.cover?.small || `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+  const pub = Array.isArray(d.publishers) ? d.publishers[0]?.name : (d.publishers?.name || '');
+  const year = (d.publish_date || '').slice(-4) || null;
+  return {
+    source: 'openlibrary:api_books',
+    isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
+    isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
+    title,
+    authors,
+    publisher: pub || '',
+    published_year: year,
+    language: (Array.isArray(d.languages) && d.languages[0]?.key?.split('/').pop()) || null,
+    page_count: d.number_of_pages || null,
+    description: '',
+    cover_url: cover,
+    _raw: d
+  };
+}
+
+async function fetchOL_SearchByIsbn(isbn) {
+  const r = await fetch(`https://openlibrary.org/search.json?isbn=${isbn}`);
+  if (!r.ok) return null;
+  const j = await r.json();
+  const doc = Array.isArray(j.docs) && j.docs[0];
+  if (!doc) return null;
+  const title = doc.title || doc.title_suggest || '';
+  const authors = Array.isArray(doc.author_name) ? doc.author_name.join(', ') : '';
+  const year = doc.first_publish_year ? String(doc.first_publish_year) : null;
+  const cover = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+  return {
+    source: 'openlibrary:search',
+    isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
+    isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
+    title,
+    authors,
+    publisher: '',
+    published_year: year,
+    language: (Array.isArray(doc.language) && doc.language[0]) || null,
+    page_count: null,
+    description: '',
+    cover_url: cover,
+    _raw: doc
+  };
+}
+
+
 // GET /api/handler?route=isbnLookup&isbn=...
 routes.isbnLookup = async (req, res, params) => {
   const raw = params.get('isbn') || '';
   const isbn13 = normalizeToIsbn13(raw);
   if (!isbn13) return res.status(400).json({ error: 'Некорректный ISBN' });
 
-  // 1) кэш
+  // 0) кэш
   const cached = await getFromCacheByIsbn13(isbn13, supabase);
   if (cached) return res.json(cached);
 
-  // 2) Google → 3) OpenLibrary
-  let meta = await fetchGoogle(isbn13);
-  if (!meta) meta = await fetchOpenLibrary(isbn13);
-  if (!meta) return res.status(404).json({ error: 'Книга не найдена' });
+  let meta = null;
+
+  // 1) Google Books
+  meta = await fetchGoogle(isbn13);
+
+  // 2) OpenLibrary по ISBN-13 (json)
+  if (!meta) meta = await fetchOL_IsbnJson(isbn13);
+
+  // 3) Если 978 — пробуем ISBN-10 (многие русские издания так находятся)
+  if (!meta && isbn13.startsWith('978')) {
+    const as10 = isbn13.slice(3, 12); // core 9 цифр из 978-… не годится напрямую, используем общий конвертер:
+    // у тебя уже есть isbn10to13; добавь обратную при желании, но проще так:
+    // попробуем обычный поиск OL по ISBN-10 из /isbn/10.json (OL принимает оба)
+    // вычисление isbn10 из isbn13:
+    const core9 = isbn13.slice(3, 12);
+    // рассчёт контрольной для ISBN-10:
+    let sum = 0;
+    for (let i=0;i<9;i++) sum += (10 - i) * parseInt(core9[i],10);
+    let check10 = (11 - (sum % 11)) % 11;
+    const isbn10 = core9 + (check10 === 10 ? 'X' : String(check10));
+
+    meta = await fetchOL_IsbnJson(isbn10);
+    if (!meta) meta = await fetchOL_Bibkeys(isbn10);
+    if (!meta) meta = await fetchOL_SearchByIsbn(isbn10);
+  }
+
+  // 4) /api/books?bibkeys=ISBN:... (даёт мету там, где /isbn/.json пуст)
+  if (!meta) meta = await fetchOL_Bibkeys(isbn13);
+
+  // 5) /search.json?isbn=...
+  if (!meta) meta = await fetchOL_SearchByIsbn(isbn13);
+
+  if (!meta) return res.status(404).json({ error: 'Книга не найдена в источниках (Google/OL)' });
+
+  // Подстраховка по обложке
+  if (!meta.cover_url && meta.isbn13) {
+    meta.cover_url = `https://covers.openlibrary.org/b/isbn/${meta.isbn13}-L.jpg`;
+  }
+
+  // Язык: если не определился, но группа 978-5 — вероятно ru
+  if (!meta.language && /^9785/.test(isbn13.replace(/-/g,''))) {
+    meta.language = 'ru';
+  }
 
   await saveToCache(meta, supabase);
   res.json(meta);
 };
+
 
 
 // 📌 Главный обработчик
