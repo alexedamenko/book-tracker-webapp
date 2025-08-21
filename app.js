@@ -654,15 +654,14 @@ document.getElementById('quickShelfBtn').onclick = async ()=>{
     finishedInput.value = today;
   }
 });
- {
+ };
+{
   const fillBtn = document.getElementById('fillFromIsbnBtn');
   if (fillBtn) fillBtn.addEventListener('click', fillFromIsbn);
 
   const scanBtn = document.getElementById('scanIsbnBtn');
   if (scanBtn) scanBtn.addEventListener('click', startScan);
 }
-};
-
 let currentIsbnMeta = null;
 
 async function fillFromIsbn() {
