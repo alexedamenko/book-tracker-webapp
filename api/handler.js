@@ -236,10 +236,15 @@ routes.upsertProfile = async (req, res) => {
 
   const { error } = await supabase
     .from('user_profiles')
-    .upsert([{ user_id, username, name, avatar_url, updated_at: new Date().toISOString() }]);
+    .upsert(
+      [{ user_id, username, name, avatar_url, updated_at: new Date().toISOString() }],
+      { onConflict: 'user_id' } // 👈 добавь это
+    );
+
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 };
+
 
 // GET ?user_id=... — список друзей (массив профилей)
 routes.listFriends = async (req, res, params) => {
