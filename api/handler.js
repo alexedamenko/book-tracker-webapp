@@ -38,6 +38,20 @@ const routes = {
     if (!book?.title || !book?.author || !book?.user_id) {
       return res.status(400).json({ error: "user_id, title и author обязательны" });
     }
+
+    // опциональная защита от дублей по isbn13 для пользователя
+    if (book.isbn13) {
+      const { data: dupe } = await supabase
+        .from("user_books")
+        .select("id")
+        .eq("user_id", book.user_id)
+        .eq("isbn13", book.isbn13)
+        .limit(1);
+      if (dupe && dupe.length) {
+        return res.status(409).json({ error: "Эта книга уже есть у тебя (ISBN совпадает)" });
+      }
+    }
+
     const { data, error } = await supabase
       .from("user_books")
       .insert([book])
