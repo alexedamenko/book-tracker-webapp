@@ -654,6 +654,13 @@ document.getElementById('quickShelfBtn').onclick = async ()=>{
     finishedInput.value = today;
   }
 });
+ {
+  const fillBtn = document.getElementById('fillFromIsbnBtn');
+  if (fillBtn) fillBtn.addEventListener('click', fillFromIsbn);
+
+  const scanBtn = document.getElementById('scanIsbnBtn');
+  if (scanBtn) scanBtn.addEventListener('click', startScan);
+}
 };
 
 let currentIsbnMeta = null;
@@ -688,10 +695,9 @@ async function fillFromIsbn() {
     sel.value = 'want_to_read';
   }
 }
-document.getElementById('fillFromIsbnBtn').addEventListener('click', fillFromIsbn);
 
-const video = document.getElementById('cam');
 async function startScan() {
+  const video = document.getElementById('cam');
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
     video.srcObject = stream; video.style.display = 'block'; await video.play();
@@ -707,7 +713,6 @@ async function startScan() {
               const ean = codes[0].rawValue;
               stopScan();
               document.getElementById('isbnInput').value = ean;
-              // сразу подтянем
               await fillFromIsbn();
               return;
             }
@@ -724,12 +729,14 @@ async function startScan() {
     alert('Нет доступа к камере. Введите ISBN вручную.');
   }
 }
+
 function stopScan() {
+  const video = document.getElementById('cam');
+  if (!video) return;
   video.style.display = 'none';
   const s = video.srcObject; if (s) s.getTracks().forEach(t => t.stop());
   video.srcObject = null;
 }
-document.getElementById('scanIsbnBtn').addEventListener('click', startScan);
 
 
 // ✅ Обработка добавления новой книги
