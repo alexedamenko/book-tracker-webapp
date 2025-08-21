@@ -15,31 +15,7 @@ async function readJsonBody(req) {
   const raw = Buffer.concat(chunks).toString('utf8').trim();
   return raw ? JSON.parse(raw) : {};
 }
-// ==== timeouts & helpers ====
-const FAST_TIMEOUT = 1400; // мс
-function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
-async function fetchWithTimeout(url, opts={}, ms=FAST_TIMEOUT){
-  const ctrl = new AbortController();
-  const t = setTimeout(()=>ctrl.abort('timeout'), ms);
-  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
-  finally { clearTimeout(t); }
-}
-async function safe(p){ try { return await p; } catch { return null; } }
-const CYR = /[А-Яа-яЁё]/;
-function pickBest(cands=[]){
-  if(!cands.length) return null;
-  for(const c of cands){
-    let s = 0;
-    if(c.language === 'ru') s+=4;
-    if(CYR.test((c.title||''))) s+=3;
-    if(CYR.test((c.authors||''))) s+=2;
-    if(c.cover_url) s+=1;
-    c._score = s;
-  }
-  cands.sort((a,b)=>(b._score||0)-(a._score||0));
-  return cands[0];
-}
 
 // 📌 Маршруты API
 const routes = {
@@ -442,6 +418,32 @@ async function fetchOL_SearchByIsbn(isbn) {
     cover_url: cover,
     _raw: doc
   };
+}
+
+// ==== timeouts & helpers ====
+const FAST_TIMEOUT = 1400; // мс
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function fetchWithTimeout(url, opts={}, ms=FAST_TIMEOUT){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort('timeout'), ms);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(t); }
+}
+async function safe(p){ try { return await p; } catch { return null; } }
+const CYR = /[А-Яа-яЁё]/;
+function pickBest(cands=[]){
+  if(!cands.length) return null;
+  for(const c of cands){
+    let s = 0;
+    if(c.language === 'ru') s+=4;
+    if(CYR.test((c.title||''))) s+=3;
+    if(CYR.test((c.authors||''))) s+=2;
+    if(c.cover_url) s+=1;
+    c._score = s;
+  }
+  cands.sort((a,b)=>(b._score||0)-(a._score||0));
+  return cands[0];
 }
 
 // === RU boosters: выбор лучшего кандидата + зеркалирование обложки + ритейлеры ===
