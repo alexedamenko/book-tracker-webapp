@@ -1,21 +1,12 @@
 // 📁 handler.js — единая серверная функция (масштабируемая)
 import { createClient } from '@supabase/supabase-js';
 
-// Принудительно Node.js, чтобы был Buffer и прочие Node API
-export const config = { runtime: 'nodejs', api: { bodyParser: true } };
-
-// Ленивое создание клиента с понятной ошибкой, если нет env
-let supabase = null;
-function ensureDB() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error('Server misconfigured: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing');
-  }
-  if (!supabase) supabase = createClient(url, key);
-  return supabase;
-}
-
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+// Обязательно: если используешь чтение req.body от Next.js
+export const config = { api: { bodyParser: true } };
 // Универсальный JSON-ридер: берёт req.body (Next), иначе читает поток
 async function readJsonBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -25,37 +16,35 @@ async function readJsonBody(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
+
 // 📌 Маршруты API
 const routes = {
-async getBooks(req, res, params) {
-  const userId = params.get("user_id");
-  if (!userId) return res.status(400).json({ error: "Не указан user_id" });
+  async getBooks(req, res, params) {
+    const userId = params.get("user_id");
+    if (!userId) return res.status(400).json({ error: "Не указан user_id" });
 
-  let { data, error } = await supabase
-    .from('user_books')
-    .select('*')
-    .eq('user_id', userId)
-    .order('added_at', { ascending: false });
-
-  if (error && error.code === '42703') {
-    ({ data, error } = await supabase
+    const { data, error } = await supabase
       .from('user_books')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false }));
-  }
+      .order('added_at', { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.status(200).json(data);
-},
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(200).json(data);
+  },
 
-
-  addBook: async (req, res) => {
-    try {
-      const book = await readJsonBody(req);
-      if (!book?.title || !book?.author || !book?.user_id) {
-        return res.status(400).json({ error: "user_id, title и author обязательны" });
-      }
+  
+  async addBook(req, res) {
+     try {
+    const book = await readJsonBody(req);
+    if (!book?.title || !book?.author || !book?.user_id) {
+      return res.status(400).json({ error: "user_id, title и author обязательны" });
+    }
+const { data, error } = await supabase
+      .from("user_books")
+      .insert([book])
+      .select("id")
+      .single();
 
       if (book.isbn13) {
         const { data: dupe } = await supabase
@@ -69,17 +58,11 @@ async getBooks(req, res, params) {
         }
       }
 
-      const { data, error } = await supabase
-        .from("user_books")
-        .insert([book])
-        .select("id")
-        .single();
-
       if (error) return res.status(500).json({ error: error.message });
-      res.status(200).json({ id: data.id });
-    } catch {
-      res.status(400).json({ error: "Invalid JSON" });
-    }
+    res.status(200).json({ id: data.id });
+  } catch {
+    res.status(400).json({ error: "Invalid JSON" });
+  }
   },
 
 
