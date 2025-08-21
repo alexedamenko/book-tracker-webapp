@@ -17,8 +17,14 @@ async function readJsonBody(req) {
 }
 
 // ==== timeouts & helpers ====
-const FAST_TIMEOUT = 1400; // мс
+const FAST_TIMEOUT = 2500; // мс
 function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+// Всегда ходим наружу с понятным UA/языком
+const DEFAULT_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+  'Accept': 'application/json,text/html;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
+};
 
 async function fetchWithTimeout(url, opts={}, ms=FAST_TIMEOUT){
   const ctrl = new AbortController();
@@ -485,10 +491,11 @@ async function fetchLabirint(isbn){
     const headers = {
       'User-Agent':'Mozilla/5.0',
       'Accept-Language':'ru-RU,ru;q=0.9,en-US;q=0.7',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Referer':'https://www.labirint.ru/'
     };
     const searchUrl = `https://www.labirint.ru/search/${isbn}/?stype=0`;
-    const r = await fetchWithTimeout(searchUrl, { headers });
+    const r = await fetchWithTimeout(searchUrl, { headers }, FAST_TIMEOUT);
     if(!r?.ok) return null;
     const html = await r.text();
 
@@ -500,7 +507,7 @@ async function fetchLabirint(isbn){
     }
     if(!detailUrl) return null;
 
-    const r2 = await fetchWithTimeout(detailUrl, { headers });
+    const r2 = await fetchWithTimeout(detailUrl, { headers }, FAST_TIMEOUT);
     if(!r2?.ok) return null;
     const html2 = await r2.text();
 
@@ -558,9 +565,10 @@ async function fetchLitres(isbn){
     const headers = {
       'User-Agent':'Mozilla/5.0',
       'Accept-Language':'ru-RU,ru;q=0.9,en-US;q=0.7',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Referer':'https://www.litres.ru/'
     };
-    const r = await fetchWithTimeout(`https://www.litres.ru/search/?q=${encodeURIComponent(isbn)}`, { headers });
+    const r = await fetchWithTimeout(`https://www.litres.ru/search/?q=${encodeURIComponent(isbn)}`, { headers }, FAST_TIMEOUT);
     if(!r?.ok) return null;
     const html = await r.text();
 
@@ -568,7 +576,7 @@ async function fetchLitres(isbn){
     if(!m) return null;
     const detailUrl = `https://www.litres.ru${m[1]}`;
 
-    const r2 = await fetchWithTimeout(detailUrl, { headers });
+    const r2 = await fetchWithTimeout(detailUrl, { headers }, FAST_TIMEOUT);
     if(!r2?.ok) return null;
     const html2 = await r2.text();
 
@@ -625,6 +633,7 @@ async function fetchLitres(isbn){
 async function googleCandidate(isbn13) {
   const r = await fetchWithTimeout(
     `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn13}`
+      { headers: DEFAULT_HEADERS }
   );
   if (!r?.ok) return null;
   const j = await r.json().catch(() => null);
@@ -650,6 +659,7 @@ async function googleCandidate(isbn13) {
 
 async function olIsbnCandidate(isbn13) {
   const r = await fetchWithTimeout(`https://openlibrary.org/isbn/${isbn13}.json`);
+    { headers: DEFAULT_HEADERS }
   if (!r?.ok) return null;
   const j = await r.json().catch(() => null);
   if (!j) return null;
@@ -675,6 +685,7 @@ async function olIsbnCandidate(isbn13) {
 async function olBibkeysCandidate(isbn13) {
   const r = await fetchWithTimeout(
     `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn13}&format=json&jscmd=data`
+      { headers: DEFAULT_HEADERS }
   );
   if (!r?.ok) return null;
   const j = await r.json().catch(() => null);
@@ -701,6 +712,7 @@ async function olBibkeysCandidate(isbn13) {
 
 async function olSearchCandidate(isbn13) {
   const r = await fetchWithTimeout(`https://openlibrary.org/search.json?isbn=${isbn13}`);
+    { headers: DEFAULT_HEADERS }
   if (!r?.ok) return null;
   const j = await r.json().catch(() => null);
   const doc = Array.isArray(j?.docs) && j.docs[0];
