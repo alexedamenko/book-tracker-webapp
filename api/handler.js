@@ -468,81 +468,125 @@ async function mirrorCoverToSupabase(url) {
   } catch { return null; }
 }
 
-// Ритейлеры: вытаскиваем JSON-LD (книга + картинка), часто лучше по RU
+// Лабиринт: идём на выдачу, берём ссылку первой книги, парсим JSON-LD на карточке
 async function fetchLabirint(isbn) {
   try {
-    const url = `https://www.labirint.ru/search/${isbn}/?stype=0`;
-    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+    const headers = {
+      'User-Agent': 'Mozilla/5.0',
+      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.7',
+      'Referer': 'https://www.labirint.ru/'
+    };
+    const searchUrl = `https://www.labirint.ru/search/${isbn}/?stype=0`;
+    const r = await fetch(searchUrl, { headers });
     if (!r.ok) return null;
     const html = await r.text();
-    const blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g);
+
+    // первая ссылка карточки /books/ID/
+    let m = html.match(/href="(\/books\/\d+\/)"/i);
+    let detailUrl = m ? `https://www.labirint.ru${m[1]}` : null;
+    if (!detailUrl) {
+      const m2 = html.match(/data-product-id="(\d+)"/i);
+      if (m2) detailUrl = `https://www.labirint.ru/books/${m2[1]}/`;
+    }
+    if (!detailUrl) return null;
+
+    const r2 = await fetch(detailUrl, { headers });
+    if (!r2.ok) return null;
+    const html2 = await r2.text();
+
+    // JSON-LD @type=Book
+    const blocks = html2.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
     if (blocks) {
       for (const block of blocks) {
         try {
-          const json = JSON.parse(block.replace(/^[\s\S]*?<script type="application\/ld\+json">/,'').replace(/<\/script>[\s\S]*$/,''));
-          const item = Array.isArray(json) ? json.find(x=>x['@type']==='Book') : (json['@type']==='Book'? json : null);
-          if (item && (item.isbn === isbn || (item.isbn||'').includes?.(isbn))) {
+          const json = JSON.parse(block.replace(/^[\s\S]*?<script[^>]*>/,'').replace(/<\/script>[\s\S]*$/,''));
+          const item = Array.isArray(json)
+            ? json.find(x => x && (x['@type']==='Book' || (Array.isArray(x['@type']) && x['@type'].includes('Book'))))
+            : (json && (json['@type']==='Book' || (Array.isArray(json['@type']) && json['@type'].includes('Book'))) ? json : null);
+          if (item) {
             const title = item.name || item.headline || '';
-            const authors = Array.isArray(item.author) ? item.author.map(a=>a.name).join(', ') : (item.author?.name||'');
-            const cover = item.image || '';
+            const authors = Array.isArray(item.author) ? item.author.map(a=>a?.name).filter(Boolean).join(', ') : (item.author?.name || '');
+            let cover = null;
+            if (typeof item.image === 'string') cover = item.image;
+            else if (Array.isArray(item.image)) cover = item.image.find(Boolean) || null;
+
             return {
               source: 'labirint',
               isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
               isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
-              title, authors,
+              title,
+              authors,
               publisher: '',
               published_year: null,
-              language: CYR.test(title||authors) ? 'ru' : null,
+              language: /[А-Яа-яЁё]/.test(title + ' ' + authors) ? 'ru' : null,
               page_count: null,
               description: '',
               cover_url: cover || null,
-              _raw: item
+              _raw: { detail: detailUrl }
             };
           }
         } catch {}
       }
     }
+
+    // og:* фолбэк с карточки
+    const ogTitle = html2.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1] || '';
+    const ogImg   = html2.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1] || '';
+    if (ogTitle) {
+      return {
+        source: 'labirint:og',
+        isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
+        isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
+        title: ogTitle,
+        authors: '',
+        publisher: '',
+        published_year: null,
+        language: /[А-Яа-яЁё]/.test(ogTitle) ? 'ru' : null,
+        page_count: null,
+        description: '',
+        cover_url: ogImg || null,
+        _raw: { detail: detailUrl, og: true }
+      };
+    }
     return null;
   } catch { return null; }
 }
-
-// LitRes: пробуем поиск по ISBN и парсим JSON-LD (@type=Book) или og:* мета-теги
+// Литрес: со списка переходим на /book/… и парсим JSON-LD/og на карточке
 async function fetchLitres(isbn) {
   try {
     const headers = {
       'User-Agent': 'Mozilla/5.0',
-      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.7'
+      'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.7',
+      'Referer': 'https://www.litres.ru/'
     };
     const r = await fetch(`https://www.litres.ru/search/?q=${encodeURIComponent(isbn)}`, { headers });
     if (!r.ok) return null;
-
     const html = await r.text();
 
-    // 1) JSON-LD: <script type="application/ld+json"> ... @type=Book
-    const blocks = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    // первая карточка /book/....../
+    const m = html.match(/href="(\/book\/[^"?#]+\/)"/i);
+    if (!m) return null;
+    const detailUrl = `https://www.litres.ru${m[1]}`;
+
+    const r2 = await fetch(detailUrl, { headers });
+    if (!r2.ok) return null;
+    const html2 = await r2.text();
+
+    // JSON-LD @type=Book
+    const blocks = html2.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
     if (blocks) {
       for (const block of blocks) {
         try {
-          const json = JSON.parse(
-            block.replace(/^[\s\S]*?<script[^>]*>/, '').replace(/<\/script>[\s\S]*$/, '')
-          );
-
+          const json = JSON.parse(block.replace(/^[\s\S]*?<script[^>]*>/,'').replace(/<\/script>[\s\S]*$/,''));
           const item = Array.isArray(json)
-            ? json.find(x => x && (x['@type'] === 'Book' || (Array.isArray(x['@type']) && x['@type'].includes('Book'))))
-            : (json && (json['@type'] === 'Book' || (Array.isArray(json['@type']) && json['@type'].includes('Book'))) ? json : null);
-
+            ? json.find(x => x && (x['@type']==='Book' || (Array.isArray(x['@type']) && x['@type'].includes('Book'))))
+            : (json && (json['@type']==='Book' || (Array.isArray(json['@type']) && json['@type'].includes('Book'))) ? json : null);
           if (item) {
             const title = item.name || item.headline || '';
-            const authors = Array.isArray(item.author)
-              ? item.author.map(a => a?.name).filter(Boolean).join(', ')
-              : (item.author?.name || '');
-
-            // image может быть строкой/массивом
+            const authors = Array.isArray(item.author) ? item.author.map(a => a?.name).filter(Boolean).join(', ') : (item.author?.name || '');
             let cover = null;
             if (typeof item.image === 'string') cover = item.image;
             else if (Array.isArray(item.image)) cover = item.image.find(Boolean) || null;
-
-            const hasCyr = /[А-Яа-яЁё]/.test((title || '') + ' ' + (authors || ''));
 
             return {
               source: 'litres',
@@ -552,20 +596,20 @@ async function fetchLitres(isbn) {
               authors: authors || '',
               publisher: '',
               published_year: null,
-              language: hasCyr ? 'ru' : null,
+              language: /[А-Яа-яЁё]/.test(title + ' ' + authors) ? 'ru' : null,
               page_count: null,
               description: '',
               cover_url: cover || null,
-              _raw: { jsonld: true }
+              _raw: { detail: detailUrl, jsonld: true }
             };
           }
         } catch {}
       }
     }
 
-    // 2) og:* fallback
-    const ogTitle = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1] || '';
-    const ogImg   = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1] || '';
+    // og:* фолбэк с карточки
+    const ogTitle = html2.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1] || '';
+    const ogImg   = html2.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1] || '';
     if (ogTitle) {
       return {
         source: 'litres:og',
@@ -579,15 +623,13 @@ async function fetchLitres(isbn) {
         page_count: null,
         description: '',
         cover_url: ogImg || null,
-        _raw: { og: true }
+        _raw: { detail: detailUrl, og: true }
       };
     }
-
     return null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
+
 
 
     
