@@ -5,6 +5,17 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// ==== timeouts & helpers ====
+const FAST_TIMEOUT = 2500; // мс
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+// Всегда ходим наружу с понятным UA/языком
+const DEFAULT_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+  'Accept': 'application/json,text/html;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
+};
+
 // Обязательно: если используешь чтение req.body от Next.js
 export const config = { api: { bodyParser: true } };
 // Универсальный JSON-ридер: берёт req.body (Next), иначе читает поток
@@ -16,15 +27,6 @@ async function readJsonBody(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
-// ==== timeouts & helpers ====
-const FAST_TIMEOUT = 2500; // мс
-function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
-// Всегда ходим наружу с понятным UA/языком
-const DEFAULT_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-  'Accept': 'application/json,text/html;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7'
-};
 
 async function fetchWithTimeout(url, opts={}, ms=FAST_TIMEOUT){
   const ctrl = new AbortController();
