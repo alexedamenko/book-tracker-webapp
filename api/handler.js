@@ -621,6 +621,106 @@ async function fetchLitres(isbn){
 
 
     
+// --- КАНДИДАТЫ (каждый сразу возвращает нормализованный объект книги или null) ---
+async function googleCandidate(isbn13) {
+  const r = await fetchWithTimeout(
+    `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn13}`
+  );
+  if (!r?.ok) return null;
+  const j = await r.json().catch(() => null);
+  const v = j?.items?.[0]?.volumeInfo;
+  if (!v) return null;
+  const ids = v.industryIdentifiers || [];
+  const isbn10 = ids.find(i => i.type === 'ISBN_10')?.identifier || null;
+  const cover = v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail || null;
+  return {
+    source: 'google',
+    isbn13,
+    isbn10,
+    title: v.title || '',
+    authors: Array.isArray(v.authors) ? v.authors.join(', ') : '',
+    publisher: v.publisher || '',
+    published_year: (v.publishedDate || '').slice(0, 4) || null,
+    language: v.language || null,
+    page_count: v.pageCount || null,
+    description: v.description || '',
+    cover_url: cover ? cover.replace('http://', 'https://') : null,
+  };
+}
+
+async function olIsbnCandidate(isbn13) {
+  const r = await fetchWithTimeout(`https://openlibrary.org/isbn/${isbn13}.json`);
+  if (!r?.ok) return null;
+  const j = await r.json().catch(() => null);
+  if (!j) return null;
+  const publish_date = Array.isArray(j.publish_date) ? j.publish_date[0] : j.publish_date;
+  const published_year = publish_date ? String(publish_date).slice(-4) : null;
+  const authors = Array.isArray(j.authors)
+    ? j.authors.map(a => a.name || a.key).join(', ')
+    : '';
+  return {
+    source: 'openlibrary:isbn',
+    isbn13,
+    title: j.title || '',
+    authors,
+    publisher: Array.isArray(j.publishers) ? j.publishers[0] : (j.publishers || ''),
+    published_year,
+    language: (Array.isArray(j.languages) && j.languages[0]?.key?.split('/').pop()) || null,
+    page_count: j.number_of_pages || null,
+    description: typeof j.description === 'string' ? j.description : (j.description?.value || ''),
+    cover_url: `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`,
+  };
+}
+
+async function olBibkeysCandidate(isbn13) {
+  const r = await fetchWithTimeout(
+    `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn13}&format=json&jscmd=data`
+  );
+  if (!r?.ok) return null;
+  const j = await r.json().catch(() => null);
+  const d = j && j[`ISBN:${isbn13}`];
+  if (!d) return null;
+  const title = d.title || '';
+  const authors = Array.isArray(d.authors) ? d.authors.map(a => a.name).join(', ') : (d.authors?.name || '');
+  const cover = d.cover?.large || d.cover?.medium || d.cover?.small || `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`;
+  const pub = Array.isArray(d.publishers) ? d.publishers[0]?.name : (d.publishers?.name || '');
+  const year = (d.publish_date || '').slice(-4) || null;
+  return {
+    source: 'openlibrary:api_books',
+    isbn13,
+    title,
+    authors,
+    publisher: pub || '',
+    published_year: year,
+    language: (Array.isArray(d.languages) && d.languages[0]?.key?.split('/').pop()) || null,
+    page_count: d.number_of_pages || null,
+    description: '',
+    cover_url: cover,
+  };
+}
+
+async function olSearchCandidate(isbn13) {
+  const r = await fetchWithTimeout(`https://openlibrary.org/search.json?isbn=${isbn13}`);
+  if (!r?.ok) return null;
+  const j = await r.json().catch(() => null);
+  const doc = Array.isArray(j?.docs) && j.docs[0];
+  if (!doc) return null;
+  const title = doc.title || doc.title_suggest || '';
+  const authors = Array.isArray(doc.author_name) ? doc.author_name.join(', ') : '';
+  const year = doc.first_publish_year ? String(doc.first_publish_year) : null;
+  return {
+    source: 'openlibrary:search',
+    isbn13,
+    title,
+    authors,
+    publisher: '',
+    published_year: year,
+    language: (Array.isArray(doc.language) && doc.language[0]) || null,
+    page_count: null,
+    description: '',
+    cover_url: `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`,
+  };
+}
 
    
 // GET /api/handler?route=isbnLookup&isbn=...
@@ -634,116 +734,51 @@ routes.isbnLookup = async (req, res, params) => {
   const cached = await getFromCacheByIsbn13(isbn13, supabase);
   if (cached && !debug) return res.json(cached);
 
-  const t0 = Date.now();
+  const startedAt = Date.now();
   const steps = [];
-  const wrap = (name, fn) => (async () => {
-    const s = Date.now();
-    try { const v = await fn(); steps.push({name, ok:!!v, ms:Date.now()-s}); return v; }
-    catch (e) { steps.push({name, ok:false, ms:Date.now()-s, err:String(e)}); return null; }
-  })();
+  const mark = (name, ok, ms, err) => steps.push({ name, ok, ms, err });
 
-  // пуляем ВСЁ параллельно (каждый со своим таймаутом)
-  const results = await Promise.allSettled([
-    wrap('google',      () => fetchWithTimeout(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn13}`)),
-    wrap('ol:isbn',     () => fetchWithTimeout(`https://openlibrary.org/isbn/${isbn13}.json`)),
-    wrap('ol:bibkeys',  () => fetchWithTimeout(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn13}&format=json&jscmd=data`)),
-    wrap('ol:search',   () => fetchWithTimeout(`https://openlibrary.org/search.json?isbn=${isbn13}`)),
-    wrap('labirint',    () => fetchLabirint(isbn13)),
-    wrap('litres',      () => fetchLitres(isbn13)),
-  ]);
+  // Параллельно запускаем задачи — КАЖДАЯ возвращает уже нормализованного кандидата
+  const tasks = [
+    ['google',     () => googleCandidate(isbn13)],
+    ['ol:isbn',    () => olIsbnCandidate(isbn13)],
+    ['ol:bibkeys', () => olBibkeysCandidate(isbn13)],
+    ['ol:search',  () => olSearchCandidate(isbn13)],
+    ['labirint',   () => fetchLabirint(isbn13)],
+    ['litres',     () => fetchLitres(isbn13)],
+  ];
 
-  // нормализуем результаты в кандидаты
-  const candidates = [];
-
-  // Google → нормализация
-  const g = results[0].status==='fulfilled' && results[0].value;
-  if (g && g.ok) {
-    const j = await g.json().catch(()=>null);
-    const v = j?.items?.[0]?.volumeInfo;
-    if (v) {
-      const ids = v.industryIdentifiers||[];
-      const isbn10 = ids.find(i=>i.type==='ISBN_10')?.identifier || null;
-      const cover = v.imageLinks?.thumbnail || v.imageLinks?.smallThumbnail || null;
-      candidates.push({
-        source:'google',
-        isbn13, isbn10,
-        title: v.title||'',
-        authors: Array.isArray(v.authors)?v.authors.join(', '):'',
-        publisher: v.publisher||'',
-        published_year: (v.publishedDate||'').slice(0,4)||null,
-        language: v.language||null,
-        page_count: v.pageCount||null,
-        description: v.description||'',
-        cover_url: cover ? cover.replace('http://','https://') : null,
-      });
+  const settled = await Promise.all(tasks.map(async ([name, fn]) => {
+    const t = Date.now();
+    try {
+      const val = await fn();
+      mark(name, !!val, Date.now() - t);
+      return val;
+    } catch (e) {
+      mark(name, false, Date.now() - t, String(e));
+      return null;
     }
-  }
+  }));
 
-  // OL isbn
-  const oli = results[1].status==='fulfilled' && results[1].value;
-  if (oli && oli.ok){
-    const j = await oli.json().catch(()=>null);
-    if (j){
-      const publish_date = Array.isArray(j.publish_date)? j.publish_date[0] : j.publish_date;
-      const published_year = publish_date ? String(publish_date).slice(-4) : null;
-      const authors = Array.isArray(j.authors) ? j.authors.map(a=>a.name||a.key).join(', ') : '';
-      candidates.push({
-        source:'openlibrary:isbn',
-        isbn13, title:j.title||'', authors,
-        publisher: Array.isArray(j.publishers)? j.publishers[0] : (j.publishers||''),
-        published_year, language: (Array.isArray(j.languages)&&j.languages[0]?.key?.split('/').pop())||null,
-        page_count: j.number_of_pages||null, description: typeof j.description==='string'? j.description : (j.description?.value||''),
-        cover_url: `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`
-      });
-    }
-  }
-
-  // OL api/books
-  const olb = results[2].status==='fulfilled' && results[2].value;
-  if (olb && olb.ok){
-    const j = await olb.json().catch(()=>null);
-    const d = j && j[`ISBN:${isbn13}`];
-    if (d){
-      const title = d.title||'';
-      const authors = Array.isArray(d.authors)? d.authors.map(a=>a.name).join(', ') : (d.authors?.name||'');
-      const cover = d.cover?.large || d.cover?.medium || d.cover?.small || `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`;
-      const pub = Array.isArray(d.publishers) ? d.publishers[0]?.name : (d.publishers?.name||'');
-      const year = (d.publish_date||'').slice(-4)||null;
-      candidates.push({ source:'openlibrary:api_books', isbn13, title, authors, publisher:pub||'', published_year:year, language:null, page_count:d.number_of_pages||null, description:'', cover_url:cover });
-    }
-  }
-
-  // OL search
-  const ols = results[3].status==='fulfilled' && results[3].value;
-  if (ols && ols.ok){
-    const j = await ols.json().catch(()=>null);
-    const doc = Array.isArray(j?.docs) && j.docs[0];
-    if (doc){
-      const title = doc.title || doc.title_suggest || '';
-      const authors = Array.isArray(doc.author_name)? doc.author_name.join(', ') : '';
-      const year = doc.first_publish_year ? String(doc.first_publish_year) : null;
-      candidates.push({ source:'openlibrary:search', isbn13, title, authors, publisher:'', published_year:year, language:(Array.isArray(doc.language) && doc.language[0])||null, page_count:null, description:'', cover_url:`https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg` });
-    }
-  }
-
-  // Лабиринт/Литрес уже возвращают нормализованную структуру
-  const lab = results[4].status==='fulfilled' ? results[4].value : null; if (lab) candidates.push(lab);
-  const lit = results[5].status==='fulfilled' ? results[5].value : null; if (lit) candidates.push(lit);
+  const candidates = settled.filter(Boolean);
 
   if (!candidates.length) {
-    if (debug) return res.status(404).json({ error:'Не найдено в источниках', _debug:{ steps, total_ms: Date.now()-t0 } });
-    return res.status(404).json({ error:'Не найдено в источниках' });
+    const payload = { error: 'Не найдено в источниках' };
+    if (debug) payload._debug = { steps, total_ms: Date.now() - startedAt };
+    return res.status(404).json(payload);
   }
 
+  // Выбираем лучшего кандидата по «русскости» и наличию обложки
   let best = pickBest(candidates);
   if (!best.language && /^9785/.test(isbn13)) best.language = 'ru';
   if (!best.cover_url) best.cover_url = `https://covers.openlibrary.org/b/isbn/${isbn13}-L.jpg`;
   best.isbn13 = best.isbn13 || isbn13;
 
   await saveToCache(best, supabase);
-  if (debug) return res.json({ ...best, _debug:{ steps, total_ms: Date.now()-t0 } });
-  res.json(best);
+  if (debug) return res.json({ ...best, _debug: { steps, total_ms: Date.now() - startedAt } });
+  return res.json(best);
 };
+
 
 
 
