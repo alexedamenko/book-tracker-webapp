@@ -16,6 +16,33 @@ async function readJsonBody(req) {
   return raw ? JSON.parse(raw) : {};
 }
 
+// ==== timeouts & helpers ====
+const FAST_TIMEOUT = 1400; // мс
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function fetchWithTimeout(url, opts={}, ms=FAST_TIMEOUT){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort('timeout'), ms);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(t); }
+}
+async function safe(p){ try { return await p; } catch { return null; } }
+const CYR = /[А-Яа-яЁё]/;
+function pickBest(cands=[]){
+  if(!cands.length) return null;
+  for(const c of cands){
+    let s = 0;
+    if(c.language === 'ru') s+=4;
+    if(CYR.test((c.title||''))) s+=3;
+    if(CYR.test((c.authors||''))) s+=2;
+    if(c.cover_url) s+=1;
+    c._score = s;
+  }
+  cands.sort((a,b)=>(b._score||0)-(a._score||0));
+  return cands[0];
+}
+
+
 // 📌 Маршруты API
 const routes = {
   async getBooks(req, res, params) {
@@ -417,23 +444,6 @@ async function fetchOL_SearchByIsbn(isbn) {
     cover_url: cover,
     _raw: doc
   };
-}
-
-// === RU boosters: выбор лучшего кандидата + зеркалирование обложки + ритейлеры ===
-const CYR = /[А-Яа-яЁё]/;
-
-function pickBest(candidates = []) {
-  if (!candidates.length) return null;
-  for (const c of candidates) {
-    let score = 0;
-    if (c.language === 'ru') score += 4;
-    if (c.title && CYR.test(c.title)) score += 3;
-    if (c.authors && CYR.test(c.authors)) score += 2;
-    if (c.cover_url) score += 1;
-    c._score = score;
-  }
-  candidates.sort((a,b)=> (b._score||0) - (a._score||0));
-  return candidates[0];
 }
 
 // ISBN-13 → ISBN-10 (только для префикса 978)
