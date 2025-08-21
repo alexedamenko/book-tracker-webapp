@@ -18,19 +18,28 @@ async function readJsonBody(req) {
 
 // 📌 Маршруты API
 const routes = {
-  async getBooks(req, res, params) {
-    const userId = params.get("user_id");
-    if (!userId) return res.status(400).json({ error: "Не указан user_id" });
+async getBooks(req, res, params) {
+  const userId = params.get("user_id");
+  if (!userId) return res.status(400).json({ error: "Не указан user_id" });
 
-    const { data, error } = await supabase
+  let { data, error } = await supabase
+    .from('user_books')
+    .select('*')
+    .eq('user_id', userId)
+    .order('added_at', { ascending: false });
+
+  if (error && error.code === '42703') {
+    ({ data, error } = await supabase
       .from('user_books')
       .select('*')
       .eq('user_id', userId)
-      .order('added_at', { ascending: false });
+      .order('created_at', { ascending: false }));
+  }
 
-    if (error) return res.status(500).json({ error: error.message });
-    res.status(200).json(data);
-  },
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(200).json(data);
+},
+
 
   async (req, res) => {
   try {
@@ -112,16 +121,25 @@ routes.listCollections = async (req, res, params) => {
   const userId = params.get('user_id');
   if (!userId) return res.status(400).json({ error: 'user_id required' });
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('collections')
     .select('*')
     .eq('user_id', userId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
+  if (error && error.code === '42703') {
+    ({ data, error } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true }));
+  }
+
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+
 
 // POST JSON { user_id, name, icon?, color? }
 routes.createCollection = async (req, res) => {
