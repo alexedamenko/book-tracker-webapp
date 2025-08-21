@@ -80,6 +80,32 @@ const routes = {
   }
 };
 
+// 📌 Главный обработчик
+export default async function handler(req, res) {
+  // CORS (если тестируешь с фронта локально)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.status(200).end();
+
+  const fullUrl = new URL(req.url, `http://${req.headers.host}`);
+  const route = fullUrl.searchParams.get("route");
+  const params = fullUrl.searchParams;
+
+  console.log(`📥 ${req.method} /api/handler?route=${route}`);
+
+  if (!route || !routes[route]) {
+    return res.status(404).json({ error: "Route not found" });
+  }
+
+  // Вызываем маршрут
+  try {
+    await routes[route](req, res, params);
+  } catch (err) {
+    console.error(`❌ Ошибка в маршруте "${route}":`, err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 // GET /api/handler?route=listCollections&user_id=...
 routes.listCollections = async (req, res, params) => {
@@ -725,30 +751,5 @@ routes.isbnLookup = async (req, res, params) => {
 };
 
 
-// 📌 Главный обработчик
-export default async function handler(req, res) {
-  // CORS (если тестируешь с фронта локально)
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
 
-  const fullUrl = new URL(req.url, `http://${req.headers.host}`);
-  const route = fullUrl.searchParams.get("route");
-  const params = fullUrl.searchParams;
-
-  console.log(`📥 ${req.method} /api/handler?route=${route}`);
-
-  if (!route || !routes[route]) {
-    return res.status(404).json({ error: "Route not found" });
-  }
-
-  // Вызываем маршрут
-  try {
-    await routes[route](req, res, params);
-  } catch (err) {
-    console.error(`❌ Ошибка в маршруте "${route}":`, err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
 
