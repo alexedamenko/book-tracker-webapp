@@ -2,13 +2,11 @@
 export async function getBooks(userId) {
   const res = await fetch(`/api/handler?route=getBooks&user_id=${encodeURIComponent(userId)}`);
   if (!res.ok) {
-    const body = await res.text().catch(()=> '');
-    console.error('getBooks HTTP', res.status, body || '(no body)');
+    console.error("Ошибка при получении книг");
     return [];
   }
-  return res.json();
+  return await res.json();
 }
-
 
 export async function exportBooks(userId) {
   const res = await fetch(`/api/exportBooks?user_id=${userId}`);
@@ -280,4 +278,3 @@ export async function isbnLookup(isbn) {
   if (!r.ok) return null;
   return r.json();
 }
-
