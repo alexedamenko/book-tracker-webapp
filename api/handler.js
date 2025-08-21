@@ -419,6 +419,129 @@ async function fetchOL_SearchByIsbn(isbn) {
   };
 }
 
+// === RU boosters: выбор лучшего кандидата + зеркалирование обложки + ритейлеры ===
+const CYR = /[А-Яа-яЁё]/;
+
+function pickBest(candidates = []) {
+  if (!candidates.length) return null;
+  for (const c of candidates) {
+    let score = 0;
+    if (c.language === 'ru') score += 4;
+    if (c.title && CYR.test(c.title)) score += 3;
+    if (c.authors && CYR.test(c.authors)) score += 2;
+    if (c.cover_url) score += 1;
+    c._score = score;
+  }
+  candidates.sort((a,b)=> (b._score||0) - (a._score||0));
+  return candidates[0];
+}
+
+// ISBN-13 → ISBN-10 (только для префикса 978)
+function isbn13to10(isbn13) {
+  const s = (isbn13||'').replace(/\D/g,'');
+  if (!/^978\d{10}$/.test(s)) return null;
+  const core9 = s.slice(3,12);
+  let sum = 0;
+  for (let i=0;i<9;i++) sum += (10 - i) * parseInt(core9[i],10);
+  let check10 = (11 - (sum % 11)) % 11;
+  return core9 + (check10 === 10 ? 'X' : String(check10));
+}
+
+// Зеркалим обложку в Supabase Storage (bucket: 'covers')
+async function mirrorCoverToSupabase(url) {
+  try {
+    if (!url) return null;
+    const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+    if (!resp.ok) return null;
+    const buf = Buffer.from(await resp.arrayBuffer());
+    const ext = (url.split('.').pop() || 'jpg').split('?')[0].toLowerCase();
+    const key = `isbn_covers/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+    const { data, error } = await supabase.storage.from('covers').upload(key, buf, {
+      contentType: ext === 'png' ? 'image/png' : 'image/jpeg',
+      upsert: false
+    });
+    if (error) return null;
+
+    const { data: pub } = supabase.storage.from('covers').getPublicUrl(key);
+    return pub?.publicUrl || null;
+  } catch { return null; }
+}
+
+// Ритейлеры: вытаскиваем JSON-LD (книга + картинка), часто лучше по RU
+async function fetchLabirint(isbn) {
+  try {
+    const url = `https://www.labirint.ru/search/${isbn}/?stype=0`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+    if (!r.ok) return null;
+    const html = await r.text();
+    const blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g);
+    if (blocks) {
+      for (const block of blocks) {
+        try {
+          const json = JSON.parse(block.replace(/^[\s\S]*?<script type="application\/ld\+json">/,'').replace(/<\/script>[\s\S]*$/,''));
+          const item = Array.isArray(json) ? json.find(x=>x['@type']==='Book') : (json['@type']==='Book'? json : null);
+          if (item && (item.isbn === isbn || (item.isbn||'').includes?.(isbn))) {
+            const title = item.name || item.headline || '';
+            const authors = Array.isArray(item.author) ? item.author.map(a=>a.name).join(', ') : (item.author?.name||'');
+            const cover = item.image || '';
+            return {
+              source: 'labirint',
+              isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
+              isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
+              title, authors,
+              publisher: '',
+              published_year: null,
+              language: CYR.test(title||authors) ? 'ru' : null,
+              page_count: null,
+              description: '',
+              cover_url: cover || null,
+              _raw: item
+            };
+          }
+        } catch {}
+      }
+    }
+    return null;
+  } catch { return null; }
+}
+
+async function fetchBook24(isbn) {
+  try {
+    const url = `https://book24.ru/search/?q=${isbn}`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+    if (!r.ok) return null;
+    const html = await r.text();
+    const blocks = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g);
+    if (blocks) {
+      for (const block of blocks) {
+        try {
+          const json = JSON.parse(block.replace(/^[\s\S]*?<script type="application\/ld\+json">/,'').replace(/<\/script>[\s\S]*$/,''));
+          const item = Array.isArray(json) ? json.find(x=>x['@type']==='Book') : (json['@type']==='Book'? json : null);
+          if (item) {
+            const title = item.name || item.headline || '';
+            const authors = Array.isArray(item.author) ? item.author.map(a=>a.name).join(', ') : (item.author?.name||'');
+            const cover = item.image || '';
+            return {
+              source: 'book24',
+              isbn13: /^\d{13}$/.test(isbn) ? isbn : null,
+              isbn10: /^\d{10}$/.test(isbn) ? isbn : null,
+              title, authors,
+              publisher: '',
+              published_year: null,
+              language: CYR.test(title||authors) ? 'ru' : null,
+              page_count: null,
+              description: '',
+              cover_url: cover || null,
+              _raw: item
+            };
+          }
+        } catch {}
+      }
+    }
+    return null;
+  } catch { return null; }
+}
 
 // GET /api/handler?route=isbnLookup&isbn=...
 routes.isbnLookup = async (req, res, params) => {
@@ -430,53 +553,63 @@ routes.isbnLookup = async (req, res, params) => {
   const cached = await getFromCacheByIsbn13(isbn13, supabase);
   if (cached) return res.json(cached);
 
-  let meta = null;
+  const candidates = [];
 
-  // 1) Google Books
-  meta = await fetchGoogle(isbn13);
+  // 1) Google
+  const g = await fetchGoogle(isbn13);
+  if (g) candidates.push(g);
 
-  // 2) OpenLibrary по ISBN-13 (json)
-  if (!meta) meta = await fetchOL_IsbnJson(isbn13);
+  // 2) OpenLibrary прямой
+  const ol1 = await fetchOL_IsbnJson(isbn13);
+  if (ol1) candidates.push(ol1);
 
-  // 3) Если 978 — пробуем ISBN-10 (многие русские издания так находятся)
-  if (!meta && isbn13.startsWith('978')) {
-    const as10 = isbn13.slice(3, 12); // core 9 цифр из 978-… не годится напрямую, используем общий конвертер:
-    // у тебя уже есть isbn10to13; добавь обратную при желании, но проще так:
-    // попробуем обычный поиск OL по ISBN-10 из /isbn/10.json (OL принимает оба)
-    // вычисление isbn10 из isbn13:
-    const core9 = isbn13.slice(3, 12);
-    // рассчёт контрольной для ISBN-10:
-    let sum = 0;
-    for (let i=0;i<9;i++) sum += (10 - i) * parseInt(core9[i],10);
-    let check10 = (11 - (sum % 11)) % 11;
-    const isbn10 = core9 + (check10 === 10 ? 'X' : String(check10));
+  // 3) OL api/books
+  const ol2 = await fetchOL_Bibkeys(isbn13);
+  if (ol2) candidates.push(ol2);
 
-    meta = await fetchOL_IsbnJson(isbn10);
-    if (!meta) meta = await fetchOL_Bibkeys(isbn10);
-    if (!meta) meta = await fetchOL_SearchByIsbn(isbn10);
+  // 4) OL search
+  const ol3 = await fetchOL_SearchByIsbn(isbn13);
+  if (ol3) candidates.push(ol3);
+
+  // 5) Если 978 — попробуем ISBN-10 (некоторые RU издания лежат только под 10)
+  const isbn10 = isbn13to10(isbn13);
+  if (isbn10) {
+    const ol10a = await fetchOL_IsbnJson(isbn10); if (ol10a) candidates.push(ol10a);
+    const ol10b = await fetchOL_Bibkeys(isbn10);  if (ol10b) candidates.push(ol10b);
+    const ol10c = await fetchOL_SearchByIsbn(isbn10); if (ol10c) candidates.push(ol10c);
   }
 
-  // 4) /api/books?bibkeys=ISBN:... (даёт мету там, где /isbn/.json пуст)
-  if (!meta) meta = await fetchOL_Bibkeys(isbn13);
+  // 6) Ритейлеры (часто у RU есть JSON-LD + обложка)
+  const lab = await fetchLabirint(isbn13); if (lab) candidates.push(lab);
+  const b24 = await fetchBook24(isbn13);  if (b24) candidates.push(b24);
 
-  // 5) /search.json?isbn=...
-  if (!meta) meta = await fetchOL_SearchByIsbn(isbn13);
+  if (!candidates.length) return res.status(404).json({ error: 'Не найдено в источниках' });
 
-  if (!meta) return res.status(404).json({ error: 'Книга не найдена в источниках (Google/OL)' });
+  // Выбор лучшего
+  let meta = pickBest(candidates);
 
-  // Подстраховка по обложке
-  if (!meta.cover_url && meta.isbn13) {
-    meta.cover_url = `https://covers.openlibrary.org/b/isbn/${meta.isbn13}-L.jpg`;
+  // fallback по языку
+  if (!meta.language && /^9785/.test(isbn13)) meta.language = 'ru';
+
+  // если нет обложки — попробуем взять из любого кандидата
+  if (!meta.cover_url) {
+    const withCover = candidates.find(c => c.cover_url);
+    if (withCover?.cover_url) meta.cover_url = withCover.cover_url;
   }
 
-  // Язык: если не определился, но группа 978-5 — вероятно ru
-  if (!meta.language && /^9785/.test(isbn13.replace(/-/g,''))) {
-    meta.language = 'ru';
+  // зеркалим обложку в Supabase, чтобы ссылка была стабильной
+  if (meta.cover_url && !meta.cover_url.includes('supabase.co')) {
+    const mirrored = await mirrorCoverToSupabase(meta.cover_url);
+    if (mirrored) meta.cover_url = mirrored;
   }
+
+  // доводим структуру
+  meta.isbn13 = meta.isbn13 || isbn13;
 
   await saveToCache(meta, supabase);
   res.json(meta);
 };
+
 
 
 
