@@ -634,7 +634,7 @@ async function fetchLitres(isbn){
 // --- КАНДИДАТЫ (каждый сразу возвращает нормализованный объект книги или null) ---
 async function googleCandidate(isbn13) {
   const r = await fetchWithTimeout(
-    `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn13}`
+    `https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn13}`,
       { headers: DEFAULT_HEADERS }
   );
   if (!r?.ok) return null;
@@ -660,7 +660,7 @@ async function googleCandidate(isbn13) {
 }
 
 async function olIsbnCandidate(isbn13) {
-  const r = await fetchWithTimeout(`https://openlibrary.org/isbn/${isbn13}.json`);
+  const r = await fetchWithTimeout(`https://openlibrary.org/isbn/${isbn13}.json`),
     { headers: DEFAULT_HEADERS }
   if (!r?.ok) return null;
   const j = await r.json().catch(() => null);
@@ -686,7 +686,7 @@ async function olIsbnCandidate(isbn13) {
 
 async function olBibkeysCandidate(isbn13) {
   const r = await fetchWithTimeout(
-    `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn13}&format=json&jscmd=data`
+    `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn13}&format=json&jscmd=data`,
       { headers: DEFAULT_HEADERS }
   );
   if (!r?.ok) return null;
@@ -713,7 +713,7 @@ async function olBibkeysCandidate(isbn13) {
 }
 
 async function olSearchCandidate(isbn13) {
-  const r = await fetchWithTimeout(`https://openlibrary.org/search.json?isbn=${isbn13}`);
+  const r = await fetchWithTimeout(`https://openlibrary.org/search.json?isbn=${isbn13}`),
     { headers: DEFAULT_HEADERS }
   if (!r?.ok) return null;
   const j = await r.json().catch(() => null);
