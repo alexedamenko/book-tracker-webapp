@@ -50,38 +50,38 @@ async getBooks(req, res, params) {
 },
 
 
-  async (req, res) => {
-  try {
-    const book = await readJsonBody(req);
-    if (!book?.title || !book?.author || !book?.user_id) {
-      return res.status(400).json({ error: "user_id, title и author обязательны" });
-    }
-
-    // опциональная защита от дублей по isbn13 для пользователя
-    if (book.isbn13) {
-      const { data: dupe } = await supabase
-        .from("user_books")
-        .select("id")
-        .eq("user_id", book.user_id)
-        .eq("isbn13", book.isbn13)
-        .limit(1);
-      if (dupe && dupe.length) {
-        return res.status(409).json({ error: "Эта книга уже есть у тебя (ISBN совпадает)" });
+  addBook: async (req, res) => {
+    try {
+      const book = await readJsonBody(req);
+      if (!book?.title || !book?.author || !book?.user_id) {
+        return res.status(400).json({ error: "user_id, title и author обязательны" });
       }
+
+      if (book.isbn13) {
+        const { data: dupe } = await supabase
+          .from("user_books")
+          .select("id")
+          .eq("user_id", book.user_id)
+          .eq("isbn13", book.isbn13)
+          .limit(1);
+        if (dupe && dupe.length) {
+          return res.status(409).json({ error: "Эта книга уже есть у тебя (ISBN совпадает)" });
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("user_books")
+        .insert([book])
+        .select("id")
+        .single();
+
+      if (error) return res.status(500).json({ error: error.message });
+      res.status(200).json({ id: data.id });
+    } catch {
+      res.status(400).json({ error: "Invalid JSON" });
     }
-
-    const { data, error } = await supabase
-      .from("user_books")
-      .insert([book])
-      .select("id")
-      .single();
-
-    if (error) return res.status(500).json({ error: error.message });
-    res.status(200).json({ id: data.id });
-  } catch {
-    res.status(400).json({ error: "Invalid JSON" });
-  }
   },
+
 
   async searchBooks(req, res, params) {
     const query = params.get("query") || "";
@@ -99,16 +99,7 @@ async getBooks(req, res, params) {
 };
 
 
-  // Вызываем маршрут
-  try {
-    await routes[route](req, res, params);
-  } catch (err) {
-    console.error(`❌ Ошибка в маршруте "${route}":`, err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-// GET /api/handler?route=listCollections&user_id=...
+  // GET /api/handler?route=listCollections&user_id=...
 routes.listCollections = async (req, res, params) => {
   const userId = params.get('user_id');
   if (!userId) return res.status(400).json({ error: 'user_id required' });
@@ -794,6 +785,12 @@ try {
   if (!route || !routes[route]) {
     return res.status(404).json({ error: "Route not found" });
   }
+  try {
+  await routes[route](req, res, params);
+} catch (err) {
+  console.error(`❌ Ошибка в маршруте "${route}":`, err);
+  res.status(500).json({ error: "Internal server error" });
+}
 
 
 
