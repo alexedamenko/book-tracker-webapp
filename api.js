@@ -273,4 +273,9 @@ export async function removeFriendship(user_id, friend_id) {
   });
   return r.json();
 }
+export async function isbnLookup(isbn) {
+  const r = await fetch(`/api/handler?route=isbnLookup&isbn=${encodeURIComponent(isbn)}`);
+  if (!r.ok) return null;
+  return r.json();
+}
 
