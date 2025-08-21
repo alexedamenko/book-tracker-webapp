@@ -183,42 +183,6 @@ function saveCurrentCollection() {
   else localStorage.removeItem(COLLECTION_MEMO_KEY);
 }
 
-function cleanIsbn(s){ return (s||'').replace(/[^0-9Xx]/g,'').toUpperCase(); }
-function isValidIsbn10(isbn){
-  isbn = cleanIsbn(isbn);
-  if (!/^\d{9}[0-9X]$/.test(isbn)) return false;
-  let sum = 0;
-  for (let i=0;i<9;i++) sum += (i+1)*parseInt(isbn[i],10);
-  sum += (isbn[9]==='X'?10:parseInt(isbn[9],10))*10;
-  return sum % 11 === 0;
-}
-function isbn10to13(isbn10){
-  const core = '978' + cleanIsbn(isbn10).slice(0,9);
-  let sum = 0;
-  for (let i=0;i<12;i++){
-    const d = parseInt(core[i],10);
-    sum += d * (i%2 ? 3 : 1);
-  }
-  const check = (10 - (sum % 10)) % 10;
-  return core + check;
-}
-function isValidIsbn13(isbn){
-  isbn = cleanIsbn(isbn);
-  if (!/^\d{13}$/.test(isbn)) return false;
-  let sum = 0;
-  for (let i=0;i<12;i++){
-    const d = parseInt(isbn[i],10);
-    sum += d * (i%2 ? 3 : 1);
-  }
-  const check = (10 - (sum % 10)) % 10;
-  return check === parseInt(isbn[12],10);
-}
-function normalizeToIsbn13(any){
-  let x = cleanIsbn(any);
-  if (x.length===10 && isValidIsbn10(x)) return isbn10to13(x);
-  if (x.length===13 && isValidIsbn13(x)) return x;
-  return null;
-}
 
 
 // 🔁 Основная функция отрисовки экрана с книгами
@@ -518,17 +482,6 @@ window.showAddForm = async function() {
   container.innerHTML = `
     <h2>➕ Добавление книги</h2>
     <form class="add-book-form" onsubmit="submitAddForm(event)">
-          <div class="form-block">
-        <label>Добавить по ISBN</label>
-        <div style="display:flex; gap:8px;">
-          <input id="isbnInput" placeholder="ISBN-13 или ISBN-10" inputmode="numeric" style="flex:1" />
-          <button type="button" id="scanIsbnBtn" title="Сканировать">📷</button>
-          <button type="button" id="fillFromIsbnBtn" title="Подтянуть данные">⤵︎</button>
-        </div>
-        <video id="cam" playsinline style="width:100%;max-height:40vh;display:none;"></video>
-        <div id="isbnHint" style="font-size:12px;opacity:.7;margin-top:4px;">Сканируй штрих-код EAN-13 на обложке или введи цифрами</div>
-      </div>
-
       <div class="form-block">
         <label>Название книги</label>
         <input type="text" id="title" required autocomplete="off" />
@@ -654,89 +607,7 @@ document.getElementById('quickShelfBtn').onclick = async ()=>{
     finishedInput.value = today;
   }
 });
- };
-{
-  const fillBtn = document.getElementById('fillFromIsbnBtn');
-  if (fillBtn) fillBtn.addEventListener('click', fillFromIsbn);
-
-  const scanBtn = document.getElementById('scanIsbnBtn');
-  if (scanBtn) scanBtn.addEventListener('click', startScan);
-}
-let currentIsbnMeta = null;
-
-async function fillFromIsbn() {
-  const raw = document.getElementById('isbnInput').value.trim();
-  const isbn13 = normalizeToIsbn13(raw);
-  if (!isbn13) { alert('Некорректный ISBN'); return; }
-
-  const meta = await isbnLookup(isbn13);
-  if (!meta) { alert('Книга не найдена'); return; }
-
-  currentIsbnMeta = meta; // запомним до сабмита
-
-  // заполняем поля
-  document.getElementById('title').value = meta.title || '';
-  document.getElementById('author').value = meta.authors || '';
-
-  const cover = meta.cover_url || '';
-  const preview = document.getElementById("coverPreview");
-  if (cover) {
-    document.getElementById('cover_url').value = cover;
-    preview.src = cover;
-    preview.style.display = 'block';
-  } else {
-    preview.style.display = 'none';
-  }
-
-  // по умолчанию — «Хочу прочитать»
-  const sel = document.getElementById('status');
-  if (sel && sel.value !== 'reading' && sel.value !== 'read') {
-    sel.value = 'want_to_read';
-  }
-}
-
-async function startScan() {
-  const video = document.getElementById('cam');
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
-    video.srcObject = stream; video.style.display = 'block'; await video.play();
-
-    if ('BarcodeDetector' in window) {
-      const detector = new BarcodeDetector({ formats: ['ean_13'] });
-      const tick = async () => {
-        if (video.readyState === 4) {
-          const bitmap = await createImageBitmap(video);
-          try {
-            const codes = await detector.detect(bitmap);
-            if (codes.length) {
-              const ean = codes[0].rawValue;
-              stopScan();
-              document.getElementById('isbnInput').value = ean;
-              await fillFromIsbn();
-              return;
-            }
-          } catch {}
-        }
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    } else {
-      alert('Сканер не поддерживается на этом устройстве. Введите ISBN вручную.');
-      stopScan();
-    }
-  } catch (e) {
-    alert('Нет доступа к камере. Введите ISBN вручную.');
-  }
-}
-
-function stopScan() {
-  const video = document.getElementById('cam');
-  if (!video) return;
-  video.style.display = 'none';
-  const s = video.srcObject; if (s) s.getTracks().forEach(t => t.stop());
-  video.srcObject = null;
-}
-
+};
 
 // ✅ Обработка добавления новой книги
 window.submitAddForm = async function (e) {
@@ -776,33 +647,20 @@ window.submitAddForm = async function (e) {
   const normTitle = normalize(title);
   const normAuthor = normalizeAuthor(author);
 
-// если ранее подтягивали по ISBN — приклеим в запись (ТОЛЬКО если у тебя есть колонки!)
-let extraIsbnFields = {};
-if (currentIsbnMeta) {
-  extraIsbnFields = {
-    isbn13: currentIsbnMeta.isbn13 || null,
-    isbn10: currentIsbnMeta.isbn10 || null,
-    language: currentIsbnMeta.language || null,
-    published_year: currentIsbnMeta.published_year || null
-  };
-}
-
- 
   const book = {
-  id: crypto.randomUUID(),
-  user_id: userId,
-  username: tgUser?.username || "",
-  user_first_name: tgUser?.first_name || "",
-  title,
-  author,
-  cover_url: coverUrl || "",
-  status,
-  rating: ratingValue ? Number(ratingValue) : null,
-  added_at: new Date().toISOString().split("T")[0],
-  started_at: startedAt,
-  finished_at: finishedAt,
-  ...extraIsbnFields // ← добавится только если есть мета
-};
+    id: crypto.randomUUID(),
+    user_id: userId,
+    username: tgUser?.username || "",
+    user_first_name: tgUser?.first_name || "",
+    title,
+    author,
+    cover_url: coverUrl || "",
+    status,
+    rating: ratingValue ? Number(ratingValue) : null,
+    added_at: new Date().toISOString().split("T")[0],
+    started_at: startedAt,
+    finished_at: finishedAt
+  };
 
   // 📌 Проверка в books_library без дублей
 await checkAndInsertLibraryBook(title, author, coverUrl);
