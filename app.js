@@ -2047,7 +2047,6 @@ if (seriesData.length === 0) {
 
 // рендер карты
 const vmax = Math.max(1, ...seriesData.map(d => d.value));
-const isDark = true; // хотим «как на втором скрине». Если хочется подстраиваться: (window.Telegram?.WebApp?.colorScheme === 'dark')
 const palette = isDark
   ? { land:'#2b2f36', border:'#3b3f46', emph:'#4b5563', ramp:['#1f2937','#0ea5a6','#2dd4bf'] }  // тёмная + бирюза
   : { land:'#eef2f7', border:'#d7dbe3', emph:'#c7d2fe', ramp:['#e8eef7','#8bb4ff','#2f6fff'] };  // светлая
