@@ -278,3 +278,27 @@ export async function isbnLookup(isbn) {
   if (!r.ok) return null;
   return r.json();
 }
+
+// === Map API ===
+export async function mapStats(userId, { mode='author', status='', year_from='', year_to='' } = {}) {
+  const qs = new URLSearchParams({ user_id: userId, mode });
+  if (status) qs.set('status', status);
+  if (year_from) qs.set('year_from', year_from);
+  if (year_to) qs.set('year_to', year_to);
+  const r = await fetch(`/api/handler?route=map_stats&${qs.toString()}`);
+  return r.ok ? r.json() : { by_country:[], regions:[], totals:{countries:0,books:0} };
+}
+
+export async function booksByCountry(userId, code, mode='author') {
+  const qs = new URLSearchParams({ user_id:userId, code, mode });
+  const r = await fetch(`/api/handler?route=books_by_country&${qs.toString()}`);
+  return r.ok ? r.json() : [];
+}
+
+export async function exportMap(userId, base64, meta={}) {
+  const r = await fetch('/api/handler?route=export_map', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ user_id:userId, base64, meta })
+  });
+  return r.ok ? r.json() : { url:null };
+}
