@@ -1991,13 +1991,13 @@ el.style.border = 'none';
     return m[code] || simple[code] || code; // fallback — покажется только tooltip
   }
 
-  function renderBadges(regions) {
-    $('regionBadges').innerHTML = regions.map(r =>
-  `<span class="chip" style="background:${isDark ? '#0b3b3b' : '#eef2f7'}; color:${isDark ? '#a7f3d0' : '#0f172a'}; border:0;">
-     ${r.name}: <b>${r.pct}%</b>
-   </span>`
-).join('');
-  }
+function renderBadges(regions, isDark) {
+  $('regionBadges').innerHTML = regions.map(r =>
+    `<span class="chip" style="background:${isDark ? '#0b3b3b' : '#eef2f7'}; color:${isDark ? '#a7f3d0' : '#0f172a'}; border:0;">
+       ${r.name}: <b>${r.pct}%</b>
+     </span>`
+  ).join('');
+}
   function renderTotals(t) {
     $('mapTotals').innerHTML = `Всего стран: <b>${t.countries}</b> · Книг: <b>${t.books}</b> · Режим: <b>${mode==='author'?'автор':'сюжет'}</b>`;
   }
@@ -2015,6 +2015,7 @@ el.style.border = 'none';
 
   async function draw() {
     const stats = await mapStats(userId, { mode, ...filters });
+    const isDark = true; // или: const isDark = (window.Telegram?.WebApp?.colorScheme === 'dark');
     renderTotals(stats.totals);
     renderBadges(stats.regions);
     renderTop(stats.by_country);
