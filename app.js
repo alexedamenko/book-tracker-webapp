@@ -102,19 +102,34 @@ async function loadScript(src) {
     const s = document.createElement('script');
     s.src = src;
     s.async = true;
-    s.onload = res;
-    s.onerror = rej;
+    s.crossOrigin = 'anonymous';
+    s.onload = () => res(src);
+    s.onerror = () => rej(new Error('Failed to load: ' + src));
     document.head.appendChild(s);
   });
 }
-
+async function loadWithFallback(urls) {
+  let lastErr;
+  for (const u of urls) {
+    try { return await loadScript(u); } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('All sources failed');
+}
 async function ensureECharts() {
-  // если уже загружено — ничего не делаем
-  if (window.echarts?.init && window.echarts?.format) return;
-  // библиотека
-  await loadScript('https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js');
-  // карта мира (регистрирует 'world')
-  await loadScript('https://cdn.jsdelivr.net/npm/echarts@5/map/js/world.js');
+  if (window.echarts?.init) return;
+
+  // CORE (3 источника)
+  await loadWithFallback([
+    'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js',
+    'https://unpkg.com/echarts@5/dist/echarts.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js'
+  ]);
+
+  // WORLD MAP (2 источника)
+  await loadWithFallback([
+    'https://cdn.jsdelivr.net/npm/echarts@5/map/js/world.js',
+    'https://unpkg.com/echarts@5/map/js/world.js'
+  ]);
 }
 // ==== ECharts loader — конец
 
@@ -1888,7 +1903,27 @@ window.showMapScreen = async function () {
     <div id="countrySheet" class="hidden" style="position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #eee;border-radius:12px 12px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.08);max-height:70vh;overflow:auto;padding:12px;"></div>
   `;
 
+try {
   await ensureECharts();
+} catch (e) {
+  console.error('ECharts load error:', e);
+  const el = document.getElementById('mapWrap');
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.justifyContent = 'center';
+  el.innerHTML = `
+    <div style="text-align:center; color:#667085; padding:16px;">
+      Не удалось загрузить библиотеку карты.<br/>
+      Попробуй ещё раз или открой в браузере.
+      <div style="margin-top:8px;">
+        <button id="retryMap" style="padding:8px 12px;">Повторить</button>
+      </div>
+    </div>`;
+  const btn = document.getElementById('retryMap');
+  if (btn) btn.onclick = () => showMapScreen();
+  return; // выходим, чтобы не продолжать рендер
+}
+
   const el = document.getElementById('mapWrap');
   const chart = echarts.init(el, null, { renderer:'canvas' });
 
