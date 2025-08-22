@@ -2042,10 +2042,6 @@ if (seriesData.length === 0) {
 }
 
 // рендер карты
-const vmax = Math.max(1, ...seriesData.map(d => d.value));
-
-// увеличим высоту/зум под мобилки
-const isMobile = window.innerWidth < 480;
 
 const palette = {
   land:'#F7F8FC', border:'#E5E9F2', emph:'#FFE3C3',
