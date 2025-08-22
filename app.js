@@ -2054,8 +2054,6 @@ const palette = isDark
 // увеличим высоту/зум под мобилки
 const isMobile = window.innerWidth < 480;
 
-const vmax = Math.max(1, ...seriesData.map(d=>d.value));
-
 chart.setOption({
   backgroundColor: 'transparent',
   // общемировые стили через geo, чтобы карта выглядела «плоской» и контрастной
