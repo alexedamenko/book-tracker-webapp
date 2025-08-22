@@ -114,7 +114,7 @@ async function ensureECharts() {
   // библиотека
   await loadScript('https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js');
   // карта мира (регистрирует 'world')
-  await loadScript('https://fastly.jsdelivr.net/npm/echarts@5/map/js/world.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/echarts@5/map/js/world.js');
 }
 // ==== ECharts loader — конец
 
@@ -1942,27 +1942,54 @@ window.showMapScreen = async function () {
     }));
 
     const vmax = Math.max(1, ...seriesData.map(d=>d.value));
-    chart.setOption({
-      tooltip: {
-        trigger: 'item',
-        formatter: (p) => {
-          const code = (p.data && p.data._iso2) || '';
-          return `${p.name} (${code}): <b>${p.value || 0}</b>`;
-        }
-      },
-      visualMap: {
-        min: 0, max: vmax, left: 10, bottom: 10, calculable: true,
-        inRange: { color: ['#e6f0ff','#8bb4ff','#2f6fff'] }
-      },
-      series: [{
-        name: 'World',
-        type: 'map',
-        map: 'world',
-        roam: true,
-        emphasis: { label: { show: false } },
-        data: seriesData
-      }]
-    });
+const seriesData = stats.by_country.map(({code,count}) => ({
+  name: iso2ToEchartsName(code),
+  value: count,
+  _iso2: code
+}));
+
+// если данных ноль — покажем подсказку поверх карты
+const mapContainer = document.getElementById('mapWrap');
+const emptyOverlayId = 'mapEmptyOverlay';
+let emptyOverlay = document.getElementById(emptyOverlayId);
+if (!emptyOverlay) {
+  emptyOverlay = document.createElement('div');
+  emptyOverlay.id = emptyOverlayId;
+  emptyOverlay.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:16px;color:#667085;';
+  mapContainer.style.position = 'relative';
+  mapContainer.appendChild(emptyOverlay);
+}
+if (seriesData.length === 0) {
+  emptyOverlay.style.display = 'flex';
+  emptyOverlay.innerHTML = 'Пока нет данных для карты.<br/>Добавь в книгах 🇺🇸 страну автора или 🌍 страны сюжета.';
+} else {
+  emptyOverlay.style.display = 'none';
+}
+
+const vmax = Math.max(1, ...seriesData.map(d=>d.value));
+chart.setOption({
+  tooltip: {
+    trigger: 'item',
+    formatter: (p) => {
+      const code = (p.data && p.data._iso2) || '';
+      return `${p.name} ${code?`(${code})`:''}: <b>${p.value || 0}</b>`;
+    }
+  },
+  visualMap: {
+    min: 0, max: vmax, left: 10, bottom: 10, calculable: true,
+    inRange: { color: ['#e8eef7','#93b3ff','#2f6fff'] }
+  },
+  series: [{
+    type: 'map',
+    map: 'world',
+    roam: true,
+    // 👇 базовая заливка, чтобы контуры карты были видны даже без данных
+    itemStyle: { areaColor: '#f3f6fb', borderColor: '#d9dee7' },
+    emphasis: { itemStyle: { areaColor: '#c7d2fe' } },
+    data: seriesData
+  }]
+});
+
 
     chart.off('click');
     chart.on('click', async (params) => {
