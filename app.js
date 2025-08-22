@@ -96,6 +96,25 @@ function makeFriendLink(code) {
   return `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}?startapp=FRIEND_${c}`;
 }
 
+// ——— UI стили для экрана карты (как в мокапе)
+(function injectMapStyles(){
+  const css = `
+  :root{
+    --bg:#f6f7fb; --card:#ffffff; --text:#0f172a; --muted:#64748b;
+    --chip:#f1f5f9; --chip-border:#e2e8f0;
+    --brand:#ff8a3d; --brand-2:#ffc38c; --brand-3:#ffe7cf;
+  }
+  body{ background:var(--bg); }
+  h2{ font-size:22px; font-weight:700; margin:4px 0 8px; }
+  .seg{ background:var(--chip); border:1px solid var(--chip-border); padding:4px; border-radius:999px; }
+  .chip{ background:var(--chip); border:1px solid var(--chip-border); border-radius:999px; padding:8px 12px; font-size:14px; }
+  .chip.active{ background:#fff; border-color:var(--brand); box-shadow:0 1px 0 rgba(0,0,0,.03); }
+  .region-pill{ background:#fff; border:1px solid #e5e7eb; border-radius:999px; padding:6px 10px; font-size:13px; }
+  .map-card{ background:var(--card); border-radius:16px; box-shadow:0 6px 24px rgba(15,23,42,.06); overflow:hidden; }
+  `;
+  const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s);
+})();
+
 // ==== ECharts loader (для экрана "Карта") — начало
 async function loadScript(src) {
   return new Promise((res, rej) => {
@@ -1895,20 +1914,13 @@ window.showMapScreen = async function () {
       </select>
       <input id="yearFrom" placeholder="с 2020" class="chip" style="width:100px">
       <input id="yearTo" placeholder="по 2025" class="chip" style="width:100px">
-      <button id="applyFilters" class="chip">Фильтр</button>
+      <button id="applyFilters" class="chip active">Фильтр</button>
     </div>
 
     <div id="mapTotals" style="margin:6px 0;opacity:.8"></div>
     <div id="regionBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
 
-    <div id="mapWrap"
-     style="width:100%;
-            height:56vh;        /* было 420px */
-            min-height:380px;   /* страховка на маленьких экранах */
-            border:1px solid #eee;
-            border-radius:12px;
-            overflow:hidden;">
-</div>
+    <div id="mapWrap" class="map-card" style="width:100%; height:56vh; min-height:380px;"></div>
 
     <div style="display:flex;gap:8px;margin:10px 0 4px;">
       <button id="shareMapBtn">Поделиться</button>
@@ -1973,15 +1985,18 @@ el.style.border = 'none';
   }
 
 function renderBadges(regions, isDark) {
-  $('regionBadges').innerHTML = regions.map(r =>
-    `<span class="chip" style="background:${isDark ? '#0b3b3b' : '#eef2f7'}; color:${isDark ? '#a7f3d0' : '#0f172a'}; border:0;">
-       ${r.name}: <b>${r.pct}%</b>
-     </span>`
-  ).join('');
+   // для светлой темы игнорируем isDark
+  regionBadges.innerHTML = regions.map(r =>
+    `<span class="region-pill">${r.name}: <b>${r.pct}%</b></span>`
+  ).join(' ');
 }
   function renderTotals(t) {
-    $('mapTotals').innerHTML = `Всего стран: <b>${t.countries}</b> · Книг: <b>${t.books}</b> · Режим: <b>${mode==='author'?'автор':'сюжет'}</b>`;
-  }
+    mapTotals.innerHTML = `
+    <span class="region-pill">Всего стран: <b>${t.countries}</b></span>
+    <span class="region-pill">Книг: <b>${t.books}</b></span>
+    <span class="region-pill">Режим: <b>${mode==='author'?'автор':'сюжет'}</b></span>
+  `;
+}
   function renderTop(by_country) {
     const top = by_country.slice(0, 8);
     $('topList').innerHTML = top.length
@@ -1998,7 +2013,7 @@ function renderBadges(regions, isDark) {
     const stats = await mapStats(userId, { mode, ...filters });
     const isDark = true; // или: const isDark = (window.Telegram?.WebApp?.colorScheme === 'dark');
     renderTotals(stats.totals);
-    renderBadges(stats.regions);
+    renderBadges(stats.regions,false);
     renderTop(stats.by_country);
 
 // соберём данные для карты (один раз!)
@@ -2035,54 +2050,53 @@ const palette = isDark
 // увеличим высоту/зум под мобилки
 const isMobile = window.innerWidth < 480;
 
+const palette = {
+  land:'#F7F8FC', border:'#E5E9F2', emph:'#FFE3C3',
+  ramp:['#FFEAD7','#FFC796','#FF8A3D'] // светло→насыщенно-оранжевый
+};
+const isMobile = window.innerWidth < 480;
+const vmax = Math.max(1, ...seriesData.map(d=>d.value));
+
 chart.setOption({
   backgroundColor: 'transparent',
-  // общемировые стили через geo, чтобы карта выглядела «плоской» и контрастной
   geo: {
     map: 'world',
     roam: true,
-    zoom: isMobile ? 1.25 : 1.1,        // крупнее
-    center: [20, 15],                    // чуть правее и ниже «по центру»
+    zoom: isMobile ? 1.25 : 1.15,
+    center: [15, 12],
     left: 0, right: 0, top: 0, bottom: 0,
     itemStyle: {
       areaColor: palette.land,
       borderColor: palette.border,
-      borderWidth: 0.6,
-      shadowColor: 'rgba(0,0,0,.35)',
-      shadowBlur: 6
+      borderWidth: 0.8,
+      shadowColor:'rgba(15,23,42,.04)', shadowBlur:8
     },
     emphasis: { itemStyle: { areaColor: palette.emph } },
-    label: { show: false }
+    label: { show:false }
   },
-
-  // скрываем сам виджет visualMap, оставляем только цветовую шкалу
   visualMap: {
-    show: false,
-    min: 0, max: vmax,
-    inRange: { color: palette.ramp }
+    show:false,
+    min:0, max:vmax,
+    inRange:{ color: palette.ramp }
   },
-
-  tooltip: {
-    trigger: 'item',
-    backgroundColor: 'rgba(17,24,39,.92)',
-    borderColor: '#0ea5a6',
-    textStyle: { color: '#e5e7eb' },
-    formatter: (p) => {
-      const code = (p.data && p.data._iso2) || '';
-      return `${p.name} ${code ? `(${code})` : ''}: <b>${p.value || 0}</b>`;
-    }
+  tooltip:{
+    trigger:'item',
+    backgroundColor:'#fff',
+    borderColor:'var(--brand)',
+    borderWidth:1,
+    textStyle:{ color:'var(--text)' },
+    extraCssText:'box-shadow:0 8px 24px rgba(15,23,42,.12); border-radius:10px; padding:8px 10px;'
   },
-
-  // сама заливка — через map серию, привязанную к geo
-  series: [{
-    type: 'map',
-    map: 'world',
-    geoIndex: 0,
-    nameProperty: 'name',
+  series:[{
+    type:'map',
+    map:'world',
+    geoIndex:0,
+    nameProperty:'name',
     data: seriesData,
-    animationDurationUpdate: 400
+    animationDurationUpdate: 350
   }]
-}, { replaceMerge: ['series'] });
+}, { replaceMerge:['series','geo','visualMap'] });
+
 
 
 // клик по стране -> список книг
