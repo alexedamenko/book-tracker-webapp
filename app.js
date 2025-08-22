@@ -141,14 +141,28 @@ async function ensureECharts() {
 // грузим и регистрируем мир как GeoJSON (без world.js)
 async function ensureWorldMap() {
   if (window.__worldRegistered) return;
-  const world = await fetchWithFallback([
-    // официальные примеры Apache ECharts (включён CORS)
-    'https://echarts.apache.org/examples/data/asset/geo/World.json',
-    // дистрибутивы с GeoJSON
-    'https://unpkg.com/echarts@5.4.3/map/json/world.json',
-    'https://cdn.jsdelivr.net/npm/echarts@5.4.3/map/json/world.json'
-  ]);
-  echarts.registerMap('world', world); // nameProperty по умолчанию 'name'
+
+  // стабильные URL с разрешённым CORS
+  const srcs = [
+    'https://cdn.jsdelivr.net/gh/apache/echarts-website@asf-site/examples/data/asset/geo/World.json',
+    'https://raw.githubusercontent.com/apache/echarts-website/asf-site/examples/data/asset/geo/World.json',
+    // запасной лёгкий GeoJSON
+    'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson'
+  ];
+
+  let world = null, lastErr = null;
+  for (const u of srcs) {
+    try {
+      const r = await fetch(u, { mode: 'cors' });
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+      world = await r.json();
+      break;
+    } catch (e) { lastErr = e; }
+  }
+  if (!world) throw lastErr || new Error('All world.json sources failed');
+
+  // регистрируем карту
+  echarts.registerMap('world', world);
   window.__worldRegistered = true;
 }
 // ==== ECharts loader — конец
@@ -2033,6 +2047,7 @@ chart.setOption({
   series: [{
     type: 'map',
     map: 'world',
+    nameProperty: 'name', 
     roam: true,
     itemStyle: { areaColor: '#f3f6fb', borderColor: '#d9dee7' },
     emphasis: { itemStyle: { areaColor: '#c7d2fe' } },
@@ -2046,12 +2061,6 @@ chart.on('click', (params) => {
   const code = params?.data?._iso2;
   if (code) openCountrySheet(code);
 });
-
-    chart.off('click');
-    chart.on('click', async (params) => {
-      const code = params?.data?._iso2;
-      if (code) openCountrySheet(code);
-    });
   }
 
   async function openCountrySheet(code) {
