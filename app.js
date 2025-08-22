@@ -108,28 +108,48 @@ async function loadScript(src) {
     document.head.appendChild(s);
   });
 }
+
 async function loadWithFallback(urls) {
   let lastErr;
   for (const u of urls) {
     try { return await loadScript(u); } catch (e) { lastErr = e; }
   }
-  throw lastErr || new Error('All sources failed');
+  throw lastErr || new Error('All script sources failed');
 }
+
+async function fetchWithFallback(urls) {
+  let lastErr;
+  for (const u of urls) {
+    try {
+      const r = await fetch(u, { mode: 'cors' });
+      if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+      return await r.json();
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('All JSON sources failed');
+}
+
 async function ensureECharts() {
   if (window.echarts?.init) return;
-
-  // CORE (3 источника)
   await loadWithFallback([
     'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js',
     'https://unpkg.com/echarts@5/dist/echarts.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js'
   ]);
+}
 
-  // WORLD MAP (2 источника)
-  await loadWithFallback([
-    'https://cdn.jsdelivr.net/npm/echarts@5/map/js/world.js',
-    'https://unpkg.com/echarts@5/map/js/world.js'
+// грузим и регистрируем мир как GeoJSON (без world.js)
+async function ensureWorldMap() {
+  if (window.__worldRegistered) return;
+  const world = await fetchWithFallback([
+    // официальные примеры Apache ECharts (включён CORS)
+    'https://echarts.apache.org/examples/data/asset/geo/World.json',
+    // дистрибутивы с GeoJSON
+    'https://unpkg.com/echarts@5.4.3/map/json/world.json',
+    'https://cdn.jsdelivr.net/npm/echarts@5.4.3/map/json/world.json'
   ]);
+  echarts.registerMap('world', world); // nameProperty по умолчанию 'name'
+  window.__worldRegistered = true;
 }
 // ==== ECharts loader — конец
 
@@ -1905,6 +1925,7 @@ window.showMapScreen = async function () {
 
 try {
   await ensureECharts();
+  await ensureWorldMap();
 } catch (e) {
   console.error('ECharts load error:', e);
   const el = document.getElementById('mapWrap');
