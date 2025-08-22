@@ -1920,7 +1920,14 @@ window.showMapScreen = async function () {
     <div id="mapTotals" style="margin:6px 0;opacity:.8"></div>
     <div id="regionBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
 
-    <div id="mapWrap" style="width:100%;height:420px;border:1px solid #eee;border-radius:12px;overflow:hidden;"></div>
+    <div id="mapWrap"
+     style="width:100%;
+            height:56vh;        /* было 420px */
+            min-height:380px;   /* страховка на маленьких экранах */
+            border:1px solid #eee;
+            border-radius:12px;
+            overflow:hidden;">
+</div>
 
     <div style="display:flex;gap:8px;margin:10px 0 4px;">
       <button id="shareMapBtn">Поделиться</button>
@@ -1943,6 +1950,9 @@ try {
 } catch (e) {
   console.error('ECharts load error:', e);
   const el = document.getElementById('mapWrap');
+ // тёмная «карточка» под карту — как на референсе
+el.style.background = '#111827';    // slate-900
+el.style.border = 'none';
   el.style.display = 'flex';
   el.style.alignItems = 'center';
   el.style.justifyContent = 'center';
@@ -1982,7 +1992,11 @@ try {
   }
 
   function renderBadges(regions) {
-    $('regionBadges').innerHTML = regions.map(r=>`<span class="chip">${r.name}: <b>${r.pct}%</b></span>`).join('');
+    $('regionBadges').innerHTML = regions.map(r =>
+  `<span class="chip" style="background:${isDark ? '#0b3b3b' : '#eef2f7'}; color:${isDark ? '#a7f3d0' : '#0f172a'}; border:0;">
+     ${r.name}: <b>${r.pct}%</b>
+   </span>`
+).join('');
   }
   function renderTotals(t) {
     $('mapTotals').innerHTML = `Всего стран: <b>${t.countries}</b> · Книг: <b>${t.books}</b> · Режим: <b>${mode==='author'?'автор':'сюжет'}</b>`;
@@ -2032,28 +2046,65 @@ if (seriesData.length === 0) {
 
 // рендер карты
 const vmax = Math.max(1, ...seriesData.map(d => d.value));
+const isDark = true; // хотим «как на втором скрине». Если хочется подстраиваться: (window.Telegram?.WebApp?.colorScheme === 'dark')
+const palette = isDark
+  ? { land:'#2b2f36', border:'#3b3f46', emph:'#4b5563', ramp:['#1f2937','#0ea5a6','#2dd4bf'] }  // тёмная + бирюза
+  : { land:'#eef2f7', border:'#d7dbe3', emph:'#c7d2fe', ramp:['#e8eef7','#8bb4ff','#2f6fff'] };  // светлая
+
+// увеличим высоту/зум под мобилки
+const isMobile = window.innerWidth < 480;
+
+const vmax = Math.max(1, ...seriesData.map(d=>d.value));
+
 chart.setOption({
+  backgroundColor: 'transparent',
+  // общемировые стили через geo, чтобы карта выглядела «плоской» и контрастной
+  geo: {
+    map: 'world',
+    roam: true,
+    zoom: isMobile ? 1.25 : 1.1,        // крупнее
+    center: [20, 15],                    // чуть правее и ниже «по центру»
+    left: 0, right: 0, top: 0, bottom: 0,
+    itemStyle: {
+      areaColor: palette.land,
+      borderColor: palette.border,
+      borderWidth: 0.6,
+      shadowColor: 'rgba(0,0,0,.35)',
+      shadowBlur: 6
+    },
+    emphasis: { itemStyle: { areaColor: palette.emph } },
+    label: { show: false }
+  },
+
+  // скрываем сам виджет visualMap, оставляем только цветовую шкалу
+  visualMap: {
+    show: false,
+    min: 0, max: vmax,
+    inRange: { color: palette.ramp }
+  },
+
   tooltip: {
     trigger: 'item',
+    backgroundColor: 'rgba(17,24,39,.92)',
+    borderColor: '#0ea5a6',
+    textStyle: { color: '#e5e7eb' },
     formatter: (p) => {
       const code = (p.data && p.data._iso2) || '';
       return `${p.name} ${code ? `(${code})` : ''}: <b>${p.value || 0}</b>`;
     }
   },
-  visualMap: {
-    min: 0, max: vmax, left: 10, bottom: 10, calculable: true,
-    inRange: { color: ['#e8eef7', '#93b3ff', '#2f6fff'] }
-  },
+
+  // сама заливка — через map серию, привязанную к geo
   series: [{
     type: 'map',
     map: 'world',
-    nameProperty: 'name', 
-    roam: true,
-    itemStyle: { areaColor: '#f3f6fb', borderColor: '#d9dee7' },
-    emphasis: { itemStyle: { areaColor: '#c7d2fe' } },
-    data: seriesData
+    geoIndex: 0,
+    nameProperty: 'name',
+    data: seriesData,
+    animationDurationUpdate: 400
   }]
-});
+}, { replaceMerge: ['series'] });
+
 
 // клик по стране -> список книг
 chart.off('click');
