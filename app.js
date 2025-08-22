@@ -1965,32 +1965,6 @@ if (seriesData.length === 0) {
 } else {
   emptyOverlay.style.display = 'none';
 }
-
-const vmax = Math.max(1, ...seriesData.map(d=>d.value));
-chart.setOption({
-  tooltip: {
-    trigger: 'item',
-    formatter: (p) => {
-      const code = (p.data && p.data._iso2) || '';
-      return `${p.name} ${code?`(${code})`:''}: <b>${p.value || 0}</b>`;
-    }
-  },
-  visualMap: {
-    min: 0, max: vmax, left: 10, bottom: 10, calculable: true,
-    inRange: { color: ['#e8eef7','#93b3ff','#2f6fff'] }
-  },
-  series: [{
-    type: 'map',
-    map: 'world',
-    roam: true,
-    // 👇 базовая заливка, чтобы контуры карты были видны даже без данных
-    itemStyle: { areaColor: '#f3f6fb', borderColor: '#d9dee7' },
-    emphasis: { itemStyle: { areaColor: '#c7d2fe' } },
-    data: seriesData
-  }]
-});
-
-
     chart.off('click');
     chart.on('click', async (params) => {
       const code = params?.data?._iso2;
