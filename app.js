@@ -132,39 +132,20 @@ async function fetchWithFallback(urls) {
 async function ensureECharts() {
   if (window.echarts?.init) return;
   await loadWithFallback([
-    'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js',
-    'https://unpkg.com/echarts@5/dist/echarts.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js'
-  ]);
+        'https://unpkg.com/echarts@5/dist/echarts.min.js',
+      ]);
 }
 
-// грузим и регистрируем мир как GeoJSON (без world.js)
+// грузим и регистрируем мир как GeoJSON из /public (без CORS)
 async function ensureWorldMap() {
   if (window.__worldRegistered) return;
-
-  // стабильные URL с разрешённым CORS
-  const srcs = [
-    'https://cdn.jsdelivr.net/gh/apache/echarts-website@asf-site/examples/data/asset/geo/World.json',
-    'https://raw.githubusercontent.com/apache/echarts-website/asf-site/examples/data/asset/geo/World.json',
-    // запасной лёгкий GeoJSON
-    'https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson'
-  ];
-
-  let world = null, lastErr = null;
-  for (const u of srcs) {
-    try {
-      const r = await fetch(u, { mode: 'cors' });
-      if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-      world = await r.json();
-      break;
-    } catch (e) { lastErr = e; }
-  }
-  if (!world) throw lastErr || new Error('All world.json sources failed');
-
-  // регистрируем карту
-  echarts.registerMap('world', world);
+  const r = await fetch('/world.geo.json'); // <- локальный файл из public/
+  if (!r.ok) throw new Error('world.geo.json not found in /public');
+  const world = await r.json();
+  echarts.registerMap('world', world); // nameProperty по умолчанию 'name'
   window.__worldRegistered = true;
 }
+
 // ==== ECharts loader — конец
 
 
