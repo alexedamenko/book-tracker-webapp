@@ -1054,4 +1054,126 @@ routes.removeFriend = async (req, res) => {
   res.json({ success: true });
 };
 
+// GET /api/handler?route=map_stats&user_id=...&mode=author|setting&status=read&year_from=2022&year_to=2025
+routes.map_stats = async (req, res, params) => {
+  const userId = params.get('user_id');
+  const mode = (params.get('mode') || 'author').toLowerCase(); // author|setting
+  const status = params.get('status'); // optional
+  const y1 = params.get('year_from');
+  const y2 = params.get('year_to');
+  if (!userId) return res.status(400).json({ error: 'user_id required' });
+
+  // базовый запрос по пользователю
+  let q = supabase.from('user_books').select('id, author_country_code, setting_country_codes, title, author, published_year').eq('user_id', userId);
+  if (status) q = q.eq('status', status);
+  const { data, error } = await q;
+  if (error) return res.status(500).json({ error: error.message });
+
+  // фильтр по году (если указан)
+  const inYear = (b) => {
+    const py = Number(b.published_year || 0);
+    if (!y1 && !y2) return true;
+    if (y1 && py && py < Number(y1)) return false;
+    if (y2 && py && py > Number(y2)) return false;
+    return true;
+  };
+  const books = (data || []).filter(inYear);
+
+  // агрегация
+  const counter = new Map();
+  if (mode === 'author') {
+    for (const b of books) {
+      const code = (b.author_country_code || '').toUpperCase();
+      if (!code) continue;
+      counter.set(code, (counter.get(code) || 0) + 1);
+    }
+  } else {
+    for (const b of books) {
+      const arr = Array.isArray(b.setting_country_codes) ? b.setting_country_codes : [];
+      const seen = new Set();
+      for (let cc of arr) {
+        cc = String(cc || '').toUpperCase();
+        if (!cc || seen.has(cc)) continue;
+        seen.add(cc);
+        counter.set(cc, (counter.get(cc) || 0) + 1);
+      }
+    }
+  }
+
+  // регионы (очень грубая разбивка для бейджей)
+  const REGION = {
+    EU: new Set(['FR','IT','DE','ES','PT','NL','BE','LU','IE','GB','NO','SE','FI','DK','PL','CZ','SK','HU','AT','CH','GR','TR','RO','BG','UA','BY','LT','LV','EE','IS','AL','BA','HR','ME','MK','RS','MD']),
+    AM: new Set(['US','CA','MX','BR','AR','CL','CO','PE','VE','UY','EC','BO','PY','CR','CU','DO','GT','HN','JM','NI','PA','SV','TT','BS']),
+    AS: new Set(['RU','CN','JP','KR','IN','BD','PK','ID','MY','TH','VN','PH','SG','AE','SA','IL','IR','IQ','JO','KW','QA','OM','LB','SY','KZ','KG','UZ','TM','TJ','AF','NP','LK','MM','KH','LA','MN','YE']),
+    AF: new Set(['ZA','EG','DZ','MA','TN','NG','KE','ET','GH','CI','SN','CM','UG','TZ','ZM','ZW','AO','MZ','SD','SS','LY','NA','BW','ML','NE','MR','BF','BI','BJ','BW','CD','CF','CG','DJ','ER','GA','GM','GN','GQ','GW','KM','LS','LR','MG','MW','MU','RE','RW','SC','SL','SO','ST','SZ','TD','TG']),
+    OC: new Set(['AU','NZ','FJ','PG','WS','TO','SB','VU','FM','MH','PW','KI','TV','NC'])
+  };
+  const totals = { countries: counter.size, books: books.length };
+  const sum = [...counter.values()].reduce((a,b)=>a+b,0) || 1;
+  const regions = (() => {
+    let eu=0, am=0, as=0, af=0, oc=0, other=0;
+    for (const [code, n] of counter) {
+      if (REGION.EU.has(code)) eu += n;
+      else if (REGION.AM.has(code)) am += n;
+      else if (REGION.AS.has(code)) as += n;
+      else if (REGION.AF.has(code)) af += n;
+      else if (REGION.OC.has(code)) oc += n;
+      else other += n;
+    }
+    const pct = x => Math.round(100*x/sum);
+    return [
+      { name:'Европа', pct:pct(eu) },
+      { name:'Азия', pct:pct(as) },
+      { name:'Америка', pct:pct(am) },
+      { name:'Африка', pct:pct(af) },
+      { name:'Океания', pct:pct(oc) }
+    ];
+  })();
+
+  res.json({
+    by_country: [...counter.entries()].map(([code,count])=>({code,count})).sort((a,b)=>b.count-a.count),
+    regions,
+    totals
+  });
+};
+
+// GET /api/handler?route=books_by_country&user_id=...&code=FR&mode=author|setting
+routes.books_by_country = async (req, res, params) => {
+  const userId = params.get('user_id');
+  const code = (params.get('code') || '').toUpperCase();
+  const mode = (params.get('mode') || 'author').toLowerCase();
+  if (!userId || !code) return res.status(400).json({ error:'user_id & code required' });
+
+  let q;
+  if (mode === 'author') {
+    q = supabase.from('user_books').select('id,title,author,cover_url,author_country_code').eq('user_id', userId).eq('author_country_code', code);
+  } else {
+    // contains для массива ISO2
+    q = supabase.from('user_books').select('id,title,author,cover_url,setting_country_codes').eq('user_id', userId).contains('setting_country_codes', [code]);
+  }
+  const { data, error } = await q;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+};
+
+// POST /api/handler?route=export_map { user_id, base64, meta }
+routes.export_map = async (req, res) => {
+  const { user_id, base64, meta } = await readJsonBody(req);
+  if (!user_id || !base64) return res.status(400).json({ error:'user_id & base64 required' });
+
+  // ensure bucket
+  if (supabase.storage.createBucket) {
+    await supabase.storage.createBucket('exports', { public: true }).catch(()=>{});
+  }
+
+  const b64 = base64.replace(/^data:image\/png;base64,/, '');
+  const buf = Buffer.from(b64, 'base64');
+  const key = `maps/${user_id}/${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+
+  const { error } = await supabase.storage.from('exports').upload(key, buf, { contentType: 'image/png', upsert: false });
+  if (error) return res.status(500).json({ error: error.message });
+
+  const { data: pub } = supabase.storage.from('exports').getPublicUrl(key);
+  res.json({ url: pub?.publicUrl || null, meta: meta || null });
+};
 
