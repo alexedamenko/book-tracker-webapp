@@ -16,7 +16,9 @@
    // группы и «книга недели»
    createGroup, listGroups, joinGroup, setGroupBook,
    groupDashboard, updateGroupProgress, listGroupComments, postGroupComment,
-   isbnLookup
+   isbnLookup,
+  // группы и «книга недели»
+   mapStats, booksByCountry, exportMap
  } from './api.js';
 
 // ✅ Инициализация WebApp Telegram (и демо-режим локально)
@@ -93,6 +95,28 @@ function makeFriendLink(code) {
   // правильный формат с short name
   return `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}?startapp=FRIEND_${c}`;
 }
+
+// ==== ECharts loader (для экрана "Карта") — начало
+async function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function ensureECharts() {
+  // если уже загружено — ничего не делаем
+  if (window.echarts?.init && window.echarts?.format) return;
+  // библиотека
+  await loadScript('https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js');
+  // карта мира (регистрирует 'world')
+  await loadScript('https://fastly.jsdelivr.net/npm/echarts@5/map/js/world.js');
+}
+// ==== ECharts loader — конец
 
 
 // 📚 Хранилище текущего списка книг и активной вкладки
@@ -264,7 +288,9 @@ loadCurrentCollection();
   <button onclick="showSearch()">🔎 <span class="label">Поиск</span></button>
   <button onclick="showFriends()">👥 <span class="label">Друзья</span></button>
   <button onclick="showGroups()">👥 <span class="label">Группы</span></button>
+  <button onclick="showMapScreen()">🌍 <span class="label">Карта</span></button> <!-- 👈 НОВОЕ -->
 </div>
+
 
 <!-- всплывающее меню форматов оставляем как есть -->
 <div id="formatMenu" class="format-menu hidden">
@@ -1822,3 +1848,187 @@ window.showGroups = async function() {
   };
 };
 
+window.showMapScreen = async function () {
+  const container = document.getElementById('app');
+  container.innerHTML = `
+    <h2>🌍 Мир через книги</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;">
+      <div class="seg" role="group" aria-label="mode">
+        <button id="modeAuthor" class="chip active">Автор</button>
+        <button id="modeSetting" class="chip">Сюжет</button>
+      </div>
+      <select id="statusFilter" class="chip">
+        <option value="">Все статусы</option>
+        <option value="read">Прочитал</option>
+        <option value="reading">Читаю</option>
+        <option value="want_to_read">Хочу</option>
+      </select>
+      <input id="yearFrom" placeholder="с 2020" class="chip" style="width:100px">
+      <input id="yearTo" placeholder="по 2025" class="chip" style="width:100px">
+      <button id="applyFilters" class="chip">Фильтр</button>
+    </div>
+
+    <div id="mapTotals" style="margin:6px 0;opacity:.8"></div>
+    <div id="regionBadges" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;"></div>
+
+    <div id="mapWrap" style="width:100%;height:420px;border:1px solid #eee;border-radius:12px;overflow:hidden;"></div>
+
+    <div style="display:flex;gap:8px;margin:10px 0 4px;">
+      <button id="shareMapBtn">Поделиться</button>
+      <button id="downloadMapBtn">Скачать PNG</button>
+    </div>
+
+    <h3 style="margin-top:12px;">Топ стран</h3>
+    <div id="topList"></div>
+
+    <div class="footer-buttons" style="margin-top:12px;">
+      <button onclick="renderMainScreen()">← Назад</button>
+    </div>
+
+    <div id="countrySheet" class="hidden" style="position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #eee;border-radius:12px 12px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.08);max-height:70vh;overflow:auto;padding:12px;"></div>
+  `;
+
+  await ensureECharts();
+  const el = document.getElementById('mapWrap');
+  const chart = echarts.init(el, null, { renderer:'canvas' });
+
+  let mode = 'author';
+  let filters = { status:'', year_from:'', year_to:'' };
+  const $ = (id)=>document.getElementById(id);
+
+  function iso2ToEchartsName(code) {
+    // Мини-словарь для «капризных» названий на карте ECharts
+    const m = {
+      'US':'United States of America', 'GB':'United Kingdom', 'RU':'Russia',
+      'IR':'Iran', 'SY':'Syria', 'KP':'Dem. Rep. Korea', 'KR':'Republic of Korea',
+      'LA':'Lao PDR', 'CZ':'Czech Rep.', 'CD':'Dem. Rep. Congo', 'CG':'Congo',
+      'BO':'Bolivia', 'TZ':'Tanzania', 'VE':'Venezuela', 'AE':'United Arab Emirates'
+    };
+    // простые случаи часто совпадают (France, Italy, Japan, Spain…)
+    const simple = {
+      'FR':'France','IT':'Italy','ES':'Spain','DE':'Germany','JP':'Japan','CN':'China','CA':'Canada','BR':'Brazil','AU':'Australia','IN':'India','MX':'Mexico','SE':'Sweden','NO':'Norway','FI':'Finland','PL':'Poland','TR':'Turkey','AR':'Argentina','ZA':'South Africa','NL':'Netherlands','CH':'Switzerland'
+    };
+    return m[code] || simple[code] || code; // fallback — покажется только tooltip
+  }
+
+  function renderBadges(regions) {
+    $('regionBadges').innerHTML = regions.map(r=>`<span class="chip">${r.name}: <b>${r.pct}%</b></span>`).join('');
+  }
+  function renderTotals(t) {
+    $('mapTotals').innerHTML = `Всего стран: <b>${t.countries}</b> · Книг: <b>${t.books}</b> · Режим: <b>${mode==='author'?'автор':'сюжет'}</b>`;
+  }
+  function renderTop(by_country) {
+    const top = by_country.slice(0, 8);
+    $('topList').innerHTML = top.length
+      ? top.map((x,i)=>`<div class="row" data-code="${x.code}" style="display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid #f1f1f1;cursor:pointer;">
+          <span>${i+1}. ${x.code}</span><b>${x.count}</b>
+         </div>`).join('')
+      : '<div style="opacity:.6">Нет данных</div>';
+    $('topList').querySelectorAll('.row').forEach(el=>{
+      el.addEventListener('click', ()=> openCountrySheet(el.dataset.code));
+    });
+  }
+
+  async function draw() {
+    const stats = await mapStats(userId, { mode, ...filters });
+    renderTotals(stats.totals);
+    renderBadges(stats.regions);
+    renderTop(stats.by_country);
+
+    const seriesData = stats.by_country.map(({code,count}) => ({
+      name: iso2ToEchartsName(code),
+      value: count,
+      _iso2: code
+    }));
+
+    const vmax = Math.max(1, ...seriesData.map(d=>d.value));
+    chart.setOption({
+      tooltip: {
+        trigger: 'item',
+        formatter: (p) => {
+          const code = (p.data && p.data._iso2) || '';
+          return `${p.name} (${code}): <b>${p.value || 0}</b>`;
+        }
+      },
+      visualMap: {
+        min: 0, max: vmax, left: 10, bottom: 10, calculable: true,
+        inRange: { color: ['#e6f0ff','#8bb4ff','#2f6fff'] }
+      },
+      series: [{
+        name: 'World',
+        type: 'map',
+        map: 'world',
+        roam: true,
+        emphasis: { label: { show: false } },
+        data: seriesData
+      }]
+    });
+
+    chart.off('click');
+    chart.on('click', async (params) => {
+      const code = params?.data?._iso2;
+      if (code) openCountrySheet(code);
+    });
+  }
+
+  async function openCountrySheet(code) {
+    const list = await booksByCountry(userId, code, mode);
+    const sheet = $('countrySheet');
+    sheet.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+        <b style="font-size:16px;">${code} · книги (${list.length})</b>
+        <button onclick="document.getElementById('countrySheet').classList.add('hidden')">Закрыть</button>
+      </div>
+      ${list.length ? list.map(b => `
+        <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #f3f3f3;cursor:pointer;" onclick="openBook('${b.id}')">
+          ${b.cover_url ? `<img src="${b.cover_url}" style="width:36px;height:54px;object-fit:cover;border-radius:6px;border:1px solid #eee;">` : ''}
+          <div style="min-width:0;">
+            <div style="font-weight:600;">${b.title}</div>
+            <div style="opacity:.7;font-size:12px;">${b.author||''}</div>
+          </div>
+        </div>
+      `).join('') : '<div style="opacity:.6">Пока нет книг</div>'}
+    `;
+    sheet.classList.remove('hidden');
+  }
+
+  // Экспорт/шаринг
+  async function exportPng() {
+    const dataURL = chart.getDataURL({ type:'png', pixelRatio: 2, backgroundColor:'#ffffff' });
+    const meta = { mode, filters };
+    const r = await exportMap(userId, dataURL, meta);
+    if (!r?.url) { alert('Не удалось сохранить PNG'); return; }
+
+    // Скачать локально (на десктопе) + открыть ссылку (в TG откроется браузер)
+    const a = document.createElement('a');
+    a.href = dataURL; a.download = `world-through-books-${Date.now()}.png`; a.click();
+
+    const tg = window.Telegram?.WebApp;
+    const caption = `Мир через книги — ${mode==='author'?'по авторам':'по сюжету'} (${new Date().toLocaleDateString()})`;
+    if (tg?.sendData) {
+      tg.sendData(JSON.stringify({ type:'share_map', url: r.url, caption }));
+    } else if (tg?.openLink) {
+      tg.openLink(r.url);
+    } else {
+      window.open(r.url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  $('shareMapBtn').onclick = exportPng;
+  $('downloadMapBtn').onclick = exportPng;
+
+  // переключатели и фильтры
+  $('modeAuthor').onclick = ()=>{ mode='author'; $('modeAuthor').classList.add('active'); $('modeSetting').classList.remove('active'); draw(); };
+  $('modeSetting').onclick = ()=>{ mode='setting'; $('modeSetting').classList.add('active'); $('modeAuthor').classList.remove('active'); draw(); };
+  $('applyFilters').onclick = ()=>{
+    filters = {
+      status: $('statusFilter').value || '',
+      year_from: $('yearFrom').value || '',
+      year_to: $('yearTo').value || ''
+    };
+    draw();
+  };
+
+  // первый рендер
+  await draw();
+};
