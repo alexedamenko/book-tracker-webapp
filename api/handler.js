@@ -1177,3 +1177,48 @@ routes.export_map = async (req, res) => {
   res.json({ url: pub?.publicUrl || null, meta: meta || null });
 };
 
+// === ONLINE SEARCH (Google Books / OpenLibrary) ===
+routes.searchOnline = async (req, res, params) => {
+  const q = params.get("q") || "";
+  if (!q) return res.status(400).json({ error: "Запрос пуст" });
+
+  const results = [];
+
+  // 1) Google Books API
+  try {
+    const g = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&langRestrict=ru|en`);
+    const j = await g.json();
+    if (j.items?.length) {
+      results.push(...j.items.map(it => {
+        const v = it.volumeInfo || {};
+        return {
+          title: v.title || "",
+          author: v.authors?.join(", ") || "",
+          cover_url: v.imageLinks?.thumbnail || "",
+          source: "google"
+        };
+      }));
+    }
+  } catch (e) {
+    console.error("GoogleBooks error", e);
+  }
+
+  // 2) OpenLibrary Search
+  try {
+    const o = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(q)}&limit=5`);
+    const j = await o.json();
+    if (j.docs?.length) {
+      results.push(...j.docs.map(d => ({
+        title: d.title || "",
+        author: d.author_name?.join(", ") || "",
+        cover_url: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : "",
+        source: "openlibrary"
+      })));
+    }
+  } catch (e) {
+    console.error("OpenLibrary error", e);
+  }
+
+  res.json(results.slice(0, 8)); // максимум 8 вариантов
+};
+
