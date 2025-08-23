@@ -2313,14 +2313,20 @@ function renderAbmSuggest(items) {
     box.style.display = 'block';
     return;
   }
-  box.innerHTML = items.slice(0,5).map(b => `
-    <div class="suggest-item" onclick='window.abmFillFromSuggestion(${JSON.stringify(b)})'>
-      <img src="${b.cover_url || ''}" onerror="this.style.display='none'" alt="">
-      <div class="meta">
-        <div class="title">${b.title || ''}</div>
-        <div class="sub">${b.author || ''}</div>
+box.innerHTML = items.slice(0,5).map(b => `
+    <div class="suggest-item" onclick='window.abmFillFromSuggestion(${JSON.stringify(b)})'
+         style="display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;">
+      <img src="${b.cover_url || ''}"
+           alt=""
+           style="width:36px;height:54px;object-fit:cover;border-radius:4px;border:1px solid #eee;flex:0 0 auto;"
+           onerror="this.src=''; this.style.display='none'">
+      <div class="meta" style="min-width:0;flex:1 1 auto;">
+        <div class="title" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.title || ''}</div>
+        <div class="sub" style="font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.author || ''}</div>
       </div>
-      <button class="select" onclick='window.abmFillFromSuggestion(${JSON.stringify(b)});event.stopPropagation()'>Choose</button>
+      <button class="select"
+              style="flex:0 0 auto;"
+              onclick='window.abmFillFromSuggestion(${JSON.stringify(b)});event.stopPropagation()'>Выбрать</button>
     </div>
   `).join('');
   box.style.display = 'block';
