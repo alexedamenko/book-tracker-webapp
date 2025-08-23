@@ -174,31 +174,10 @@ button {
 }
 
 
-/* === Экспорт файлов (меню выбора формата) === */
-.export-container {
-  position: relative;
-  margin-top: 20px;
-  text-align: center;
-}
-
 #exportBtn {
   padding: 10px 20px;
   font-size: 16px;
   cursor: pointer;
-}
-
-.dropdown {
-  position: absolute;
-  background: white;
-  border: 1px solid #ccc;
-  width: 100%;
-  max-width: 200px;
-  margin: 0 auto;
-  left: 0;
-  right: 0;
-  top: 100%;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
 .format-option {
