@@ -1,14 +1,24 @@
 /* === Основные стили страницы === */
 /* app.css */
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+html, body { margin:0; padding:0; height:100%; }
+
+/* фиксированный верхний «буфер», чтобы контент не заезжал под пузырь и статус-бар */
+#safeTopOverlay{
+  position: fixed;
+  left: 0; right: 0; top: 0;
+  height: calc(var(--tg-content-safe-area-inset-top, 0px) + 28px); /* 28px = запас под пузырь */
+  background: var(--tg-theme-bg-color, #fff); /* или твой фон */
+  z-index: 1000;
+  pointer-events: none;  /* чтобы не перехватывал клики */
+  /* по желанию: лёгкий градиент, чтобы смотреться аккуратно
+  background: linear-gradient(#fff, rgba(255,255,255,0.85));
+  */
 }
 
-#app {
-  padding-top: var(--tg-content-safe-area-inset-top, 16px);
-  padding-bottom: var(--tg-content-safe-area-inset-bottom, 0);
+/* весь контент начинается ниже буфера */
+#app{
+  margin-top: calc(var(--tg-content-safe-area-inset-top, 0px) + 28px);
+  padding-bottom: calc(var(--tg-content-safe-area-inset-bottom, 0px) + 12px);
 }
 
 h2 {
