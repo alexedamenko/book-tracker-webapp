@@ -290,6 +290,18 @@ function escapeHtml(s = "") {
   ));
 }
 
+// — нормализуем обложки к HTTPS + правильному домену Google
+function normalizeCoverUrl(u = '') {
+  let url = String(u || '').trim();
+  if (!url) return '';
+  // http → https
+  url = url.replace(/^http:\/\//i, 'https://');
+  // старый домен Google Books → googleusercontent
+  url = url.replace(/^https?:\/\/books\.google\.com\/books\/content/i,
+                    'https://books.googleusercontent.com/books/content');
+  return url;
+}
+
 async function loadCollectionsData() {
   collections = await listCollections(userId);
   const pairs = await listAllBookCollections(userId);
@@ -561,7 +573,10 @@ function renderBookCard(book) {
 
   return `
     <div class="book-card" data-book-id="${book.id}">
-      <img src="${book.cover_url}" alt="${book.title}" onclick="showZoom('${book.cover_url}')" />
+      <img src="${normalizeCoverUrl(book.cover_url)}"
+      loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous"
+      alt="${book.title}"
+      onclick="showZoom('${normalizeCoverUrl(book.cover_url)}')" />
 
       <div class="info">
         <div class="card-actions-top">
@@ -739,7 +754,7 @@ document.getElementById('quickShelfBtn').onclick = async ()=>{
     const url = e.target.value.trim();
     const preview = document.getElementById("coverPreview");
     if (url) {
-      preview.src = url;
+      preview.src = normalizeCoverUrl(url);
       preview.style.display = "block";
     } else {
       preview.style.display = "none";
@@ -1066,7 +1081,7 @@ document.getElementById('quickShelfBtn').onclick = async ()=>{
   document.getElementById("cover_url").addEventListener("input", (e) => {
     const url = e.target.value.trim();
     const preview = document.getElementById("coverPreview");
-    if (url) { preview.src = url; preview.style.display = "block"; } else { preview.style.display = "none"; }
+    if (url) { preview.src = normalizeCoverUrl(url); preview.style.display = "block"; } else { preview.style.display = "none"; }
   });
 
   // автоустановка даты окончания
@@ -2198,6 +2213,7 @@ window.openAddBookModal = async function() {
   if (!modal) return;
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
+  modal.removeAttribute('inert');
   if (window.Telegram?.WebApp?.expand) Telegram.WebApp.expand();
 
   // Колонки (полки)
@@ -2271,10 +2287,20 @@ window.openAddBookModal = async function() {
 window.closeAddBookModal = function() {
   const modal = document.getElementById('addBookModal');
   if (!modal) return;
+  // 1) если фокус внутри модалки — снимем его, иначе aria-hidden будет ругаться
+ const active = document.activeElement;
+ if (active && modal.contains(active) && typeof active.blur === 'function') {
+   active.blur();
+ }
+
+ // 2) отдать фокус безопасному элементу вне модалки (например, корню приложения)
+ document.getElementById('app')?.focus?.();
+ 
   // сброс сканера если открыт
   abmStopScan();
   modal.classList.add('hidden');
   modal.setAttribute('aria-hidden','true');
+  modal.setAttribute('inert','');     // модалка недоступна для фокуса/АТ
   // очистим подсказки
   const sb = document.getElementById('abmSuggest'); if (sb) sb.style.display='none';
 };
@@ -2316,10 +2342,11 @@ function renderAbmSuggest(items) {
 box.innerHTML = items.slice(0,5).map(b => `
     <div class="suggest-item" onclick='window.abmFillFromSuggestion(${JSON.stringify(b)})'
          style="display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;">
-      <img src="${b.cover_url || ''}"
-           alt=""
-           style="width:36px;height:54px;object-fit:cover;border-radius:4px;border:1px solid #eee;flex:0 0 auto;"
-           onerror="this.src=''; this.style.display='none'">
+      <img src="${normalizeCoverUrl(b.cover_url || '')}"
+      loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous"
+      onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?><svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;64&quot; height=&quot;96&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%23eee&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;middle&quot; font-size=&quot;10&quot; fill=&quot;%23999&quot;>no cover</text></svg>'"
+
+      alt="">
       <div class="meta" style="min-width:0;flex:1 1 auto;">
         <div class="title" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.title || ''}</div>
         <div class="sub" style="font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.author || ''}</div>
@@ -2335,7 +2362,7 @@ box.innerHTML = items.slice(0,5).map(b => `
 window.abmFillFromSuggestion = function(b) {
   document.getElementById('abmTitle').value  = b.title  || '';
   document.getElementById('abmAuthor').value = b.author || '';
-  const url = b.cover_url || '';
+  const url = normalizeCoverUrl(b.cover_url || '');
   const prev = document.getElementById('abmCoverPreview');
   const urlInput = document.getElementById('abmCoverUrl');
   if (url && prev && urlInput) { prev.src = url; prev.style.display='block'; urlInput.value = url; }
