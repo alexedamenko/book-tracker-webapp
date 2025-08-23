@@ -573,10 +573,12 @@ function renderBookCard(book) {
 
   return `
     <div class="book-card" data-book-id="${book.id}">
-      <img src="${normalizeCoverUrl(book.cover_url)}"
-      loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous"
-      alt="${book.title}"
-      onclick="showZoom('${normalizeCoverUrl(book.cover_url)}')" />
+<img src="${normalizeCoverUrl(book.cover_url)}"
+     loading="lazy"
+     alt="${book.title}"
+     onclick="showZoom('${normalizeCoverUrl(book.cover_url)}')"
+     onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<?xml version=&quot;1.0&quot;?><svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;96&quot; height=&quot;144&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%23eee&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;middle&quot; font-size=&quot;12&quot; fill=&quot;%23999&quot;>no cover</text></svg>'" />
+
 
       <div class="info">
         <div class="card-actions-top">
@@ -2343,10 +2345,9 @@ box.innerHTML = items.slice(0,5).map(b => `
     <div class="suggest-item" onclick='window.abmFillFromSuggestion(${JSON.stringify(b)})'
          style="display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;">
       <img src="${normalizeCoverUrl(b.cover_url || '')}"
-      loading="lazy" referrerpolicy="no-referrer" crossorigin="anonymous"
-      onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?><svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;64&quot; height=&quot;96&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%23eee&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;middle&quot; font-size=&quot;10&quot; fill=&quot;%23999&quot;>no cover</text></svg>'"
-
-      alt="">
+     loading="lazy"
+     onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<?xml version=&quot;1.0&quot;?><svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;64&quot; height=&quot;96&quot;><rect width=&quot;100%&quot; height=&quot;100%&quot; fill=&quot;%23eee&quot;/><text x=&quot;50%&quot; y=&quot;50%&quot; dominant-baseline=&quot;middle&quot; text-anchor=&quot;middle&quot; font-size=&quot;10&quot; fill=&quot;%23999&quot;>no cover</text></svg>'"
+     alt="">
       <div class="meta" style="min-width:0;flex:1 1 auto;">
         <div class="title" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.title || ''}</div>
         <div class="sub" style="font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.author || ''}</div>
