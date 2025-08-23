@@ -168,10 +168,10 @@ button {
   .footer-buttons .label{ display:none; } /* оставим только иконки */
 }
 
-/* Если у тебя меню форматов внутри .footer-buttons, чтобы не ломало сетку */
+/* Если у тебя меню форматов внутри .footer-buttons, чтобы не ломало сетку 
 #formatMenu{
   position: absolute;               /* всплывающее поверх, не занимает колонку */
-}
+}*/
 
 
 #exportBtn {
