@@ -1191,6 +1191,8 @@ routes.searchOnline = async (req, res, params) => {
     if (j.items?.length) {
       results.push(...j.items.map(it => {
         const v = it.volumeInfo || {};
+        const raw = v.imageLinks?.smallThumbnail || v.imageLinks?.thumbnail || "";
+        const cover = raw ? raw.replace(/^http:\/\//i, 'https://') : "";
         return {
           title: v.title || "",
           author: v.authors?.join(", ") || "",
