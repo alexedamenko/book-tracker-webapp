@@ -344,7 +344,7 @@ loadCurrentCollection();
       <div class="nav-tab ${currentTab === 'want_to_read' ? 'active' : ''}" onclick="switchTab('want_to_read')">Хочу прочитать</div>
     </div>
 
-    <button onclick="showAddForm()">+ Добавить книгу</button>
+   <button onclick="openAddBookModal()">+ Добавить книгу</button>
     
 
   ${renderCollectionsBar()}
@@ -2184,3 +2184,269 @@ chart.on('click', (params) => {
   // первый рендер
   await draw();
 };
+
+// ===== Add Book Modal (ABM) — логика =====
+let abmIsbnMeta = null;
+
+window.openAddBookModal = async function() {
+  const modal = document.getElementById('addBookModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  if (window.Telegram?.WebApp?.expand) Telegram.WebApp.expand();
+
+  // Колонки (полки)
+  const list = await listCollections(userId);
+  const colBox = document.getElementById('abmColSelect');
+  if (colBox) {
+    colBox.innerHTML = (list||[]).map(c => `
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" value="${c.id}"/>
+        ${c.icon || '🏷️'} ${escapeHtml(c.name || '')}
+      </label>
+    `).join('');
+  }
+  // Быстрая полка
+  document.getElementById('abmQuickShelfBtn')?.addEventListener('click', async ()=>{
+    const name = document.getElementById('abmQuickShelfName').value.trim();
+    if (!name) return;
+    const created = await createCollection(userId, name);
+    const list2 = await listCollections(userId);
+    const sel = new Set([...document.querySelectorAll('#abmColSelect input:checked')].map(i=>i.value));
+    if (created?.id) sel.add(created.id);
+    colBox.innerHTML = (list2||[]).map(c => `
+      <label style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" value="${c.id}" ${sel.has(c.id)?'checked':''}/>
+        ${c.icon || '🏷️'} ${escapeHtml(c.name || '')}
+      </label>
+    `).join('');
+  });
+
+  // Кнопки хедера
+  document.getElementById('abmSearchBtn')?.addEventListener('click', ()=>{
+    document.getElementById('abmOnlineInput')?.focus();
+  });
+  document.getElementById('abmScanBtn')?.addEventListener('click', abmStartScan);
+
+  // Обложка
+  const pick = document.getElementById('abmCoverPick');
+  const file = document.getElementById('abmCoverFile');
+  const prev = document.getElementById('abmCoverPreview');
+  const url  = document.getElementById('abmCoverUrl');
+  pick?.addEventListener('click', ()=> file?.click());
+  file?.addEventListener('change', ()=>{
+    const f = file.files?.[0];
+    if (!f) return;
+    const blob = URL.createObjectURL(f);
+    prev.src = blob; prev.style.display = 'block';
+  });
+  url?.addEventListener('input', e=>{
+    const v = e.target.value.trim();
+    if (!v) { prev.style.display='none'; return; }
+    prev.src = v; prev.style.display = 'block';
+  });
+
+  // ISBN «⤵︎»
+  document.getElementById('abmFillIsbn')?.addEventListener('click', abmFillFromIsbn);
+
+  // Статус → автоустановка даты окончания
+  document.getElementById('abmStatus')?.addEventListener('change', ()=>{
+    const s = document.getElementById('abmStatus').value;
+    const f = document.getElementById('abmFinished');
+    if (s === 'read' && !f.value) f.value = new Date().toISOString().split('T')[0];
+  });
+
+  // Сохранение
+  document.getElementById('abmSaveBtn')?.addEventListener('click', abmSave);
+
+  // Онлайн-поиск
+  initAbmOnlineSearch();
+};
+
+window.closeAddBookModal = function() {
+  const modal = document.getElementById('addBookModal');
+  if (!modal) return;
+  // сброс сканера если открыт
+  abmStopScan();
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden','true');
+  // очистим подсказки
+  const sb = document.getElementById('abmSuggest'); if (sb) sb.style.display='none';
+};
+
+// ——— Онлайн-поиск по названию (использует /api/handler?route=searchBooks)
+function initAbmOnlineSearch() {
+  const input = document.getElementById('abmOnlineInput');
+  const box   = document.getElementById('abmSuggest');
+  if (!input || !box) return;
+
+  const debounce = (fn, ms=300)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms);} };
+
+  async function run(){
+    const q = input.value.trim();
+    if (q.length < 2) { box.style.display='none'; return; }
+    try {
+      const items = await searchBooks(q);        // ← твоя функция из api.js
+      renderAbmSuggest(items || []);
+    } catch {
+      box.innerHTML = '<div style="padding:8px 10px;opacity:.7">Search error</div>';
+      box.style.display = 'block';
+    }
+  }
+
+  input.addEventListener('input', debounce(run, 350));
+  document.addEventListener('click', (e)=>{
+    if (!box.contains(e.target) && e.target !== input) box.style.display='none';
+  });
+}
+
+function renderAbmSuggest(items) {
+  const box = document.getElementById('abmSuggest');
+  if (!box) return;
+  if (!items.length) {
+    box.innerHTML = '<div style="padding:8px 10px;opacity:.7">Nothing found</div>';
+    box.style.display = 'block';
+    return;
+  }
+  box.innerHTML = items.slice(0,5).map(b => `
+    <div class="suggest-item" onclick='window.abmFillFromSuggestion(${JSON.stringify(b)})'>
+      <img src="${b.cover_url || ''}" onerror="this.style.display='none'" alt="">
+      <div class="meta">
+        <div class="title">${b.title || ''}</div>
+        <div class="sub">${b.author || ''}</div>
+      </div>
+      <button class="select" onclick='window.abmFillFromSuggestion(${JSON.stringify(b)});event.stopPropagation()'>Choose</button>
+    </div>
+  `).join('');
+  box.style.display = 'block';
+}
+
+window.abmFillFromSuggestion = function(b) {
+  document.getElementById('abmTitle').value  = b.title  || '';
+  document.getElementById('abmAuthor').value = b.author || '';
+  const url = b.cover_url || '';
+  const prev = document.getElementById('abmCoverPreview');
+  const urlInput = document.getElementById('abmCoverUrl');
+  if (url && prev && urlInput) { prev.src = url; prev.style.display='block'; urlInput.value = url; }
+  const box = document.getElementById('abmSuggest'); if (box) box.style.display='none';
+};
+
+// ——— Заполнение из ISBN (Google/OpenLibrary + кэш)
+async function abmFillFromIsbn() {
+  const raw = document.getElementById('abmIsbn').value.trim();
+  if (!raw) { alert('Введите ISBN'); return; }
+  const meta = await isbnLookup(raw);
+  if (!meta) { alert('Книга не найдена'); return; }
+  abmIsbnMeta = meta;
+  document.getElementById('abmTitle').value  = meta.title   || '';
+  document.getElementById('abmAuthor').value = meta.authors || '';
+  const cover = meta.cover_url || '';
+  const prev  = document.getElementById('abmCoverPreview');
+  const urlIn = document.getElementById('abmCoverUrl');
+  if (cover) { prev.src = cover; prev.style.display='block'; urlIn.value = cover; }
+  const sel = document.getElementById('abmStatus');
+  if (sel && sel.value !== 'reading' && sel.value !== 'read') sel.value = 'want_to_read';
+}
+
+// ——— Сканер EAN-13 (камера в модалке)
+async function abmStartScan() {
+  const video = document.getElementById('abmCam');
+  if (!video) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+    video.srcObject = stream; video.style.display='block'; await video.play();
+
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['ean_13'] });
+      const tick = async () => {
+        if (video.readyState === 4) {
+          const bmp = await createImageBitmap(video);
+          try {
+            const codes = await detector.detect(bmp);
+            if (codes.length) {
+              const ean = codes[0].rawValue;
+              abmStopScan();
+              document.getElementById('abmIsbn').value = ean;
+              await abmFillFromIsbn();
+              return;
+            }
+          } catch {}
+        }
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    } else {
+      alert('Сканер не поддерживается на этом устройстве. Введите ISBN вручную.');
+      abmStopScan();
+    }
+  } catch {
+    alert('Нет доступа к камере.');
+  }
+}
+function abmStopScan() {
+  const v = document.getElementById('abmCam'); if (!v) return;
+  v.style.display='none';
+  const s = v.srcObject; if (s) s.getTracks().forEach(t=>t.stop());
+  v.srcObject = null;
+}
+
+// ——— Сохранение книги из модалки
+async function abmSave() {
+  const t = document.getElementById('abmTitle').value.trim();
+  const a = document.getElementById('abmAuthor').value.trim();
+  if (!t || !a) { alert('Title и Author обязательны'); return; }
+
+  // обложка: приоритет файл → url
+  let coverUrl = document.getElementById('abmCoverUrl').value.trim();
+  const file = document.getElementById('abmCoverFile').files?.[0];
+  if (file) {
+    coverUrl = await uploadCover(file);
+    if (!coverUrl) { alert('Не удалось загрузить обложку'); return; }
+  }
+
+  const status   = document.getElementById('abmStatus').value;
+  const started  = document.getElementById('abmStarted').value || null;
+  let finished   = document.getElementById('abmFinished').value || null;
+  if (status === 'read' && !finished) finished = new Date().toISOString().split('T')[0];
+
+  const rating   = document.getElementById('abmRating').value ? Number(document.getElementById('abmRating').value) : null;
+
+  // доп. поля от ISBN
+  let extra = {};
+  if (abmIsbnMeta) {
+    extra = {
+      isbn13: abmIsbnMeta.isbn13 || null,
+      isbn10: abmIsbnMeta.isbn10 || null,
+      language: abmIsbnMeta.language || null,
+      published_year: abmIsbnMeta.published_year || null
+    };
+  }
+
+  const tgUser = Telegram.WebApp.initDataUnsafe?.user || {};
+  const book = {
+    id: crypto.randomUUID(),
+    user_id: userId,
+    username: tgUser?.username || "",
+    user_first_name: tgUser?.first_name || "",
+    title: t,
+    author: a,
+    cover_url: coverUrl || "",
+    status,
+    rating,
+    added_at: new Date().toISOString().split('T')[0],
+    started_at: started,
+    finished_at: finished,
+    ...extra
+  };
+
+  const newId = await addBook(book);
+  if (!newId) { alert('Не удалось создать книгу'); return; }
+
+  // полки
+  const ids = [...document.querySelectorAll('#abmColSelect input:checked')].map(i=>i.value);
+  if (ids.length) await setBookCollections(userId, newId, ids);
+
+  closeAddBookModal();
+  currentTab = book.status;
+  await focusBookInList(newId);
+}
