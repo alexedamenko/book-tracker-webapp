@@ -936,13 +936,17 @@ async function handleBookSearch(e) {
   const value = e.target.value.trim();
   const list = document.getElementById("suggestions");
   list.innerHTML = "";
-  if (value.length < 4) return;
+  if (value.length < 3) return;
 
-  const suggestions = await searchBooks(value);
+  const suggestions = await searchOnlineBooks(value);
   list.innerHTML = suggestions.map(
-    book => `<div class="suggestion-item" onclick="selectBook('${book.title}', '${book.author}', '${book.cover_url || ""}')">${book.title} — ${book.author}</div>`
+    b => `<div class="suggestion-item" 
+             onclick="selectBook('${b.title.replace(/'/g,"")}', '${b.author.replace(/'/g,"")}', '${b.cover_url || ""}')">
+             ${b.title} — ${b.author}
+           </div>`
   ).join("");
 }
+
 
 window.selectBook = function(title, author, coverUrl) {
   document.getElementById("title").value = title;
