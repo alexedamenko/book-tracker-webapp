@@ -21,6 +21,29 @@
    mapStats, booksByCountry, exportMap
  } from './api.js';
 
+Telegram.WebApp.ready();
+Telegram.WebApp.expand();
+
+function applySafeTop() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  // читаем CSS-переменную от Telegram (может быть пустой на Android)
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue('--tg-content-safe-area-inset-top')
+    .trim();
+
+  const safeTop = parseInt(raw || '0', 10) || 0;
+
+  // добавляем запас под «Close»-пузырь
+  const EXTRA = 22; // подгони при желании 18–28
+  app.style.paddingTop = (safeTop + EXTRA) + 'px';
+}
+
+// применяем сразу и при изменении viewport (поворот/клавиатура и т.п.)
+applySafeTop();
+Telegram.WebApp.onEvent('viewportChanged', applySafeTop);
+
 // ✅ Инициализация WebApp Telegram (и демо-режим локально)
 const tg = window.Telegram?.WebApp;
 let userId;
