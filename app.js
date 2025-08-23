@@ -6,6 +6,7 @@
    getBooks, addBook, uploadExport, updateBook, deleteBook,
    saveComment, checkAndInsertLibraryBook, deleteImageFromStorage,
    uploadCover, searchBooks, deleteCommentImage, uploadCommentImage,
+   searchOnlineBooks,
    // полки
    listCollections, listAllBookCollections, listBookCollections,
    setBookCollections, createCollection, renameCollection, deleteCollection,
@@ -2278,7 +2279,7 @@ window.closeAddBookModal = function() {
   const sb = document.getElementById('abmSuggest'); if (sb) sb.style.display='none';
 };
 
-// ——— Онлайн-поиск по названию (использует /api/handler?route=searchBooks)
+// ——— Онлайн-поиск по названию (Google Books / OpenLibrary через /api/handler?route=searchOnline)
 function initAbmOnlineSearch() {
   const input = document.getElementById('abmOnlineInput');
   const box   = document.getElementById('abmSuggest');
@@ -2290,7 +2291,7 @@ function initAbmOnlineSearch() {
     const q = input.value.trim();
     if (q.length < 2) { box.style.display='none'; return; }
     try {
-      const items = await searchBooks(q);        // ← твоя функция из api.js
+      const items = await searchOnlineBooks(q);  // ← интернет‑поиск
       renderAbmSuggest(items || []);
     } catch {
       box.innerHTML = '<div style="padding:8px 10px;opacity:.7">Search error</div>';
