@@ -302,3 +302,8 @@ export async function exportMap(userId, base64, meta={}) {
   });
   return r.ok ? r.json() : { url:null };
 }
+export async function searchOnlineBooks(query) {
+  const r = await fetch(`/api/handler?route=searchOnline&q=${encodeURIComponent(query)}`);
+  if (!r.ok) return [];
+  return r.json();
+}
