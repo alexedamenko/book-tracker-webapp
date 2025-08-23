@@ -1,13 +1,14 @@
 /* === Основные стили страницы === */
-body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  padding: 0;
+/* app.css */
+html, body {
   margin: 0;
-  background: #f2f2f7;
+  padding: 0;
+  height: 100%;
 }
 
 #app {
-  padding: 16px;
+  padding-top: var(--tg-content-safe-area-inset-top, 16px);
+  padding-bottom: var(--tg-content-safe-area-inset-bottom, 0);
 }
 
 h2 {
