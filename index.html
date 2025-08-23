@@ -11,8 +11,83 @@
 <body>
   <div id="app">Загрузка...</div>
 <div id="zoom-overlay" class="hidden" onclick="closeZoom()">
-  <img id="zoom-image" src="" alt="Обложка" />
+    <img id="zoom-image" src="" alt="Обложка" /></div>
+  <!-- Add Book Modal (шторка поверх текущего фона) -->
+<div id="addBookModal" class="abm hidden" aria-hidden="true">
+  <div class="abm__overlay" onclick="closeAddBookModal()"></div>
+
+  <div class="abm__sheet" role="dialog" aria-modal="true">
+    <div class="abm__header">
+      <div class="abm__title">ДОБАВИТЬ КНИГУ</div>
+      <button class="abm__close" onclick="closeAddBookModal()">✕</button>
+    </div>
+
+    <div class="abm__content">
+      <!-- Верхние кнопки, как на скрине -->
+      <button id="abmSearchBtn" class="abm__btn">Поиск онлайн</button>
+      <button id="abmScanBtn" class="abm__btn">Сканировать ISBN код</button>
+
+      <div class="abm__or">или добавить вручную</div>
+
+      <!-- Быстрый онлайн-поиск -->
+      <div class="abm__search">
+        <input id="abmOnlineInput" type="text" placeholder="Название…" autocomplete="off" />
+        <div id="abmSuggest" class="suggest-box"></div>
+      </div>
+
+      <!-- ISBN-поле и скрытая камера для сканера -->
+      <div class="abm__row">
+        <input id="abmIsbn" placeholder="ISBN-13 или ISBN-10 (необязательно)" inputmode="numeric" />
+        <button id="abmFillIsbn" class="abm__mini">⤵︎</button>
+      </div>
+      <video id="abmCam" playsinline style="width:100%;max-height:40vh;display:none;border-radius:12px;"></video>
+
+      <!-- Обложка -->
+      <div class="abm__cover">
+        <img id="abmCoverPreview" alt="" />
+        <button id="abmCoverPick" class="abm__coverPick">+</button>
+        <input id="abmCoverFile" type="file" accept="image/*" hidden />
+        <input id="abmCoverUrl" type="url" placeholder="Ссылка на обложку (или выбери файл выше)" />
+      </div>
+
+      <!-- Поля формы (как в твоём add form) -->
+      <input id="abmTitle"  class="abm__input" placeholder="Название книги*" />
+      <input id="abmAuthor" class="abm__input" placeholder="Автор*" />
+
+      <div class="abm__row">
+        <select id="abmStatus" class="abm__input">
+          <option value="want_to_read">Хочу прочитать</option>
+          <option value="reading">Читаю</option>
+          <option value="read">Прочитал</option>
+        </select>
+        <select id="abmRating" class="abm__input">
+          <option value="">Без оценки</option>
+          <option value="1">⭐ 1</option><option value="2">⭐ 2</option>
+          <option value="3">⭐ 3</option><option value="4">⭐ 4</option>
+          <option value="5">⭐ 5</option>
+        </select>
+      </div>
+
+      <div class="abm__row">
+        <input id="abmStarted"  class="abm__input" type="date" placeholder="Дата начала" />
+        <input id="abmFinished" class="abm__input" type="date" placeholder="Дата окончания" />
+      </div>
+
+      <!-- Полки (рендерим из JS) -->
+      <div class="abm__block">
+        <div class="abm__label">Полки</div>
+        <div id="abmColSelect" class="abm__cols"></div>
+        <div class="abm__row">
+          <input id="abmQuickShelfName" class="abm__input" placeholder="Быстрая новая полка" />
+          <button id="abmQuickShelfBtn" class="abm__mini">＋</button>
+        </div>
+      </div>
+
+      <button id="abmSaveBtn" class="abm__save">Save book</button>
+    </div>
+  </div>
 </div>
+
 <script src="app.js" type="module"></script>
 <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
 <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
