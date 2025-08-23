@@ -1,15 +1,17 @@
 /* === Основные стили страницы === */
-/* app.css */
-html, body { margin:0; padding:0; height:100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  padding: 0;
+  margin: 0;
+  background: #f2f2f7;
+}
 
-/* весь контент начинается ниже буфера */
-#app{
-  margin-top: calc(var(--tg-content-safe-area-inset-top, 0px));
-  padding-bottom: calc(var(--tg-content-safe-area-inset-bottom, 0px));
+#app {
+  padding: 16px;
 }
 
 h2 {
-  margin-bottom: 12px;
+  margin-bottom: 2px;
 }
 
 /* === Вкладки (навигация по статусу книги) === */
