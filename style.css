@@ -518,3 +518,108 @@ toastui-editor-popup {
 .abm__cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;}
 .abm__save{width:100%;padding:14px;border:0;border-radius:14px;margin:10px 0 14px;background:var(--tg-theme-button-color,#2ea6ff);color:var(--tg-theme-button-text-color,#fff);font-weight:700;}
 
+/* === Fullscreen Add Book sheet === */
+.abm.hidden { display:none; }
+.abm {
+  position:fixed; inset:0;
+  z-index:9999;
+  /* фон оставляем как у твоего приложения – НЕ затемняем */
+}
+.abm__sheet{
+  position:fixed; inset:0;
+  display:flex; flex-direction:column;
+  background:transparent;         /* важно: фон приложения остаётся */
+  padding: max(var(--tg-content-safe-area-inset-top,0px), 10px) 12px 12px;
+  box-sizing:border-box;
+}
+
+/* карточка-«лист» */
+.abm__content{
+  background:#fff;                /* белый лист поверх твоего фона */
+  border-radius:16px;
+  box-shadow:0 16px 60px rgba(0,0,0,.18);
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  height: calc(100vh - max(var(--tg-content-safe-area-inset-top,0px), 10px) - 12px);
+  padding:16px 14px 20px;
+}
+
+/* шапка */
+.abm__header{
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  margin:0 0 10px;
+}
+.abm__title{
+  font-size:18px; font-weight:700; margin:0;
+  text-transform:uppercase; letter-spacing:.3px;
+}
+.abm__close{
+  position:absolute; right:6px; top:0;
+  width:36px; height:36px; border:none; background:transparent;
+  font-size:20px; line-height:36px; cursor:pointer;
+}
+
+/* кнопки «Поиск онлайн / Сканировать» */
+.abm__buttons{ display:flex; gap:10px; margin:6px 0 10px; }
+.abm__btn{
+  flex:1; padding:12px 14px; border-radius:12px; border:none;
+  background:#2ea7ff; color:#fff; font-weight:600; cursor:pointer;
+}
+.abm__or{ text-align:center; opacity:.6; margin:8px 0 12px; }
+
+/* всплывающее окно поиска */
+.abm-search{
+  position:fixed; left:0; right:0; bottom:0;
+  background:#fff; border-radius:16px 16px 0 0;
+  box-shadow:0 -10px 40px rgba(0,0,0,.18);
+  max-height:70vh; padding:12px; 
+}
+.abm-search.hidden{ display:none; }
+.abm-search__header{ display:flex; align-items:center; justify-content:center; position:relative; }
+.abm-search__title{ font-weight:700; }
+.abm-search__close{ position:absolute; right:0; top:0; width:36px; height:36px; border:none; background:transparent; font-size:20px; cursor:pointer; }
+.abm-search__input{
+  width:100%; padding:12px; border:1px solid #ddd; border-radius:10px; margin:8px 0 10px;
+  box-sizing:border-box;
+}
+.abm-search__list{ display:grid; gap:8px; max-height:48vh; overflow:auto; }
+.abm-search__item{
+  display:grid; grid-template-columns:56px 1fr; gap:10px; align-items:center;
+  padding:8px; border:1px solid #eee; border-radius:10px; cursor:pointer;
+}
+.abm-search__item img{ width:56px; height:84px; object-fit:cover; border-radius:6px; }
+
+/* — Форма добавления: корректировки — */
+.add-book-form{ max-width:720px; margin:0 auto; }
+.add-book-form input, .add-book-form select, .add-book-form textarea{
+  width:100%; box-sizing:border-box;
+}
+
+/* даты в линию и без наложения */
+.form-block.date-group{
+  display:grid; grid-template-columns:1fr 1fr; gap:10px;
+}
+.form-block.date-group label{ grid-column:span 1; margin-top:6px; }
+@media (max-width:480px){
+  .form-block.date-group{ grid-template-columns:1fr; }
+}
+
+/* полки — минимум 2 колонки на телефонах */
+#col-select{
+  display:grid !important;
+  grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+  gap:8px !important;
+}
+@media (min-width:520px){
+  #col-select{ grid-template-columns:repeat(3, minmax(0,1fr)) !important; }
+}
+
+/* Быстрая полка — выравнивание кнопки по высоте поля */
+#quickShelfBtn{
+  padding:0 14px; height:40px; line-height:40px;
+  border-radius:8px; border:none; background:#f3f4f6; cursor:pointer;
+}
+
+/* чтобы поля не обрезались справа */
+#app, .abm__content{ padding-left:14px; padding-right:14px; }
