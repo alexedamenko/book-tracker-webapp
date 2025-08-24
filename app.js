@@ -666,8 +666,8 @@ window.showAddForm = async function(inModal = false) {
   const formHtml = `
     <form class="add-book-form" onsubmit="submitAddForm(event)">
       <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:8px;">
-        <button type="button" onclick="openSearchOnlineModal()" class="save-btn">🔎 Поиск онлайн</button>
-        <button type="button" onclick="openScanIsbnModal()" class="save-btn">📷 Сканировать ISBN</button>
+        <button type="button" onclick="openSearchOnlineModal()" class="abm__btn">Поиск онлайн</button>
+        <button type="button" onclick="openScanIsbnModal()" class="abm__btn">Сканировать ISBN</button>
       </div>
 
       <div class="form-block">
