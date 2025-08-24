@@ -323,6 +323,11 @@ function normalizeCoverUrl(u = '') {
                     'https://books.googleusercontent.com/books/content');
   return url;
 }
+// --- simple debounce для live‑поиска ---
+function debounce(fn, wait = 300) {
+  let t; 
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+}
 
 async function loadCollectionsData() {
   collections = await listCollections(userId);
@@ -379,7 +384,7 @@ loadCurrentCollection();
       <div class="nav-tab ${currentTab === 'want_to_read' ? 'active' : ''}" onclick="switchTab('want_to_read')">Хочу прочитать</div>
     </div>
 
-   <button onclick="openAddBook()">+ Добавить книгу</button>
+   <button onclick="openAddBookModal()">+ Добавить книгу</button>
        
 
   ${renderCollectionsBar()}
@@ -2292,86 +2297,161 @@ chart.on('click', (params) => {
   await draw();
 };
 
-window.openAddBookModal = function(){ openAddBook(); };
-
-// ===== Add Book Modal (ABM) — логика =====
-let abmIsbnMeta = null;
-
-window.openAddBookModal = async function() {
+// Открыть модалку «Добавить книгу»
+window.openAddBookModal = async function () {
   const modal = document.getElementById('addBookModal');
-  if (!modal) return;
+  const sheet = modal.querySelector('.abm__sheet');
+
+  // показываем
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
-  modal.removeAttribute('inert');
-  if (window.Telegram?.WebApp?.expand) Telegram.WebApp.expand();
 
-  // Колонки (полки)
-  const list = await listCollections(userId);
-  const colBox = document.getElementById('abmColSelect');
-  if (colBox) {
-    colBox.innerHTML = (list||[]).map(c => `
-      <label style="display:flex;align-items:center;gap:6px">
-        <input type="checkbox" value="${c.id}"/>
-        ${c.icon || '🏷️'} ${escapeHtml(c.name || '')}
-      </label>
-    `).join('');
-  }
-  // Быстрая полка
-  document.getElementById('abmQuickShelfBtn')?.addEventListener('click', async ()=>{
-    const name = document.getElementById('abmQuickShelfName').value.trim();
+  // элементы формы
+  const $ = (id) => document.getElementById(id);
+  const inTitle      = $('abmTitle');
+  const inAuthor     = $('abmAuthor');
+  const inIsbn       = $('abmIsbn');
+  const inCoverUrl   = $('abmCoverUrl');
+  const inCoverFile  = $('abmCoverFile');
+  const preview      = $('abmCoverPreview');
+  const inStatus     = $('abmStatus');
+  const inRating     = $('abmRating');
+  const inStarted    = $('abmStarted');
+  const inFinished   = $('abmFinished');
+  const saveBtn      = $('abmSaveBtn');
+
+  // ВЕРХНИЕ КНОПКИ (просто скроллим к нужным блокам)
+  $('abmSearchBtn')?.addEventListener('click', () => {
+    $('abmOnlineInput')?.focus();
+  });
+  $('abmScanBtn')?.addEventListener('click', () => {
+    inIsbn?.focus();
+  });
+
+  // Быстрая полка — создать
+  $('abmQuickShelfBtn')?.addEventListener('click', async () => {
+    const name = ($('abmQuickShelfName')?.value || '').trim();
     if (!name) return;
-    const created = await createCollection(userId, name);
-    const list2 = await listCollections(userId);
-    const sel = new Set([...document.querySelectorAll('#abmColSelect input:checked')].map(i=>i.value));
-    if (created?.id) sel.add(created.id);
-    colBox.innerHTML = (list2||[]).map(c => `
-      <label style="display:flex;align-items:center;gap:6px">
-        <input type="checkbox" value="${c.id}" ${sel.has(c.id)?'checked':''}/>
-        ${c.icon || '🏷️'} ${escapeHtml(c.name || '')}
-      </label>
-    `).join('');
+    const r = await createCollection(userId, name);
+    if (r?.id) {
+      $('abmQuickShelfName').value = '';
+      // перерисуем список полок на главном экране и в модалке
+      await loadCollectionsData();
+      renderModalCollections();
+    }
   });
 
-  // Кнопки хедера
-  document.getElementById('abmSearchBtn')?.addEventListener('click', ()=>{
-    document.getElementById('abmOnlineInput')?.focus();
-  });
-  document.getElementById('abmScanBtn')?.addEventListener('click', abmStartScan);
-
-  // Обложка
-  const pick = document.getElementById('abmCoverPick');
-  const file = document.getElementById('abmCoverFile');
-  const prev = document.getElementById('abmCoverPreview');
-  const url  = document.getElementById('abmCoverUrl');
-  pick?.addEventListener('click', ()=> file?.click());
-  file?.addEventListener('change', ()=>{
-    const f = file.files?.[0];
-    if (!f) return;
-    const blob = URL.createObjectURL(f);
-    prev.src = blob; prev.style.display = 'block';
-  });
-  url?.addEventListener('input', e=>{
-    const v = e.target.value.trim();
-    if (!v) { prev.style.display='none'; return; }
-    prev.src = v; prev.style.display = 'block';
+  // Подбор обложки: файл → превью + ссылка
+  $('abmCoverPick')?.addEventListener('click', () => inCoverFile.click());
+  inCoverFile?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Локальное превью
+    const url = URL.createObjectURL(file);
+    preview.src = url;
+    preview.style.display = 'block';
+    inCoverUrl.value = url; // временно, чтобы было что отправить
   });
 
-  // ISBN «⤵︎»
-  document.getElementById('abmFillIsbn')?.addEventListener('click', abmFillFromIsbn);
+  // === LIVE‑ПОИСК ОНЛАЙН ===
+  const input = $('abmOnlineInput');
+  const suggestBox = $('abmSuggest');
 
-  // Статус → автоустановка даты окончания
-  document.getElementById('abmStatus')?.addEventListener('change', ()=>{
-    const s = document.getElementById('abmStatus').value;
-    const f = document.getElementById('abmFinished');
-    if (s === 'read' && !f.value) f.value = new Date().toISOString().split('T')[0];
-  });
+  const renderSuggest = (items = []) => {
+    if (!items.length) { suggestBox.innerHTML = ''; suggestBox.style.display = 'none'; return; }
+    suggestBox.style.display = 'block';
+    suggestBox.innerHTML = items.map((b, i) => {
+      const cover = normalizeCoverUrl(b.cover_url || '');
+      return `
+        <div class="sugg" data-i="${i}">
+          <img src="${cover || ''}" alt="" onerror="this.style.display='none'">
+          <div class="sugg-text">
+            <div class="sugg-title">${escapeHtml(b.title || '')}</div>
+            <div class="sugg-author">${escapeHtml(b.author || b.authors || '')}</div>
+          </div>
+        </div>`;
+    }).join('');
+    // клик по подсказке → заполнить поля
+    suggestBox.querySelectorAll('.sugg').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = +el.getAttribute('data-i');
+        const pick = items[idx];
+        inTitle.value  = pick.title || '';
+        inAuthor.value = pick.author || pick.authors || '';
+        const cover = normalizeCoverUrl(pick.cover_url || pick.image || '');
+        if (cover) { preview.src = cover; preview.style.display = 'block'; inCoverUrl.value = cover; }
+        if (pick.isbn13) inIsbn.value = pick.isbn13;
+        input.value = '';
+        renderSuggest([]);
+      });
+    });
+  };
 
-  // Сохранение
-  document.getElementById('abmSaveBtn')?.addEventListener('click', abmSave);
+  const doSearch = debounce(async () => {
+    const q = (input.value || '').trim();
+    if (q.length < 2) { renderSuggest([]); return; }
+    try {
+      const res = await searchOnlineBooks(q); // ← из api.js
+      renderSuggest(res || []);
+    } catch (e) {
+      console.warn('search error', e);
+      renderSuggest([]);
+    }
+  }, 300);
 
-  // Онлайн-поиск
-  initAbmOnlineSearch();
+  input?.addEventListener('input', doSearch);
+
+  // === РЕНДЕР СПИСКА ПОЛОК В МОДАЛКЕ (2 колонки) ===
+  function renderModalCollections() {
+    const box = document.getElementById('abmColSelect');
+    if (!box) return;
+    box.innerHTML = collections.map(c => {
+      return `
+        <label class="col-item">
+          <input type="checkbox" value="${c.id}">
+          <span class="icon">${c.icon || '🏷️'}</span>
+          <span class="name">${escapeHtml(c.name)}</span>
+        </label>`;
+    }).join('');
+  }
+  renderModalCollections();
+
+  // === СОХРАНИТЬ КНИГУ ===
+  saveBtn.onclick = async () => {
+    const title  = inTitle.value.trim();
+    const author = inAuthor.value.trim();
+    if (!title || !author) { alert('Заполни название и автора'); return; }
+
+    const book = {
+      user_id: String(userId),
+      title,
+      author,
+      status: inStatus.value || 'want_to_read',
+      rating: inRating.value ? Number(inRating.value) : null,
+      started_at: inStarted.value || null,
+      finished_at: inFinished.value || null,
+      cover_url: inCoverUrl.value || null,
+      isbn13: normalizeToIsbn13(inIsbn.value) || null,
+      added_at: new Date().toISOString()
+    };
+
+    // 1) создаём книгу
+    const newId = await addBook(book);
+    if (!newId) { alert('Не удалось сохранить книгу'); return; }
+
+    // 2) привяжем к выбранным полкам
+    const checked = Array.from(document.querySelectorAll('#abmColSelect input[type="checkbox"]:checked'))
+      .map(i => i.value);
+    if (checked.length) {
+      await setBookCollections(userId, newId, checked);
+    }
+
+    // 3) закрываем и перерисовываем список
+    closeAddBookModal();
+    renderMainScreen();
+  };
 };
+
 
 window.closeAddBookModal = function() {
   const modal = document.getElementById('addBookModal');
