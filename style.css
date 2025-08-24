@@ -479,12 +479,8 @@ toastui-editor-popup {
 }
 
   /* ===== Add Book Modal (ABM) ===== */
-.abm{
-  position: fixed; inset:0;
-  display: grid; place-items: center;
-  z-index: 2147483000;
-}
 .abm.hidden{display:none;}
+.abm{position:fixed; inset:0; z-index:9999;}
 .abm__overlay{position:absolute; inset:0; background:rgba(0,0,0,.35); backdrop-filter:blur(2px);}
 .abm__sheet{
   position:absolute; left:0; right:0; bottom:0; max-height:92vh; overflow:auto;
@@ -493,42 +489,16 @@ toastui-editor-popup {
   box-shadow:0 -12px 40px rgba(0,0,0,.25);
   padding-bottom: env(safe-area-inset-bottom);
 }
-abm__header{
-  position: sticky; top:0; z-index:3;
-  padding: 12px 48px;           /* место под крестик */
-  text-align: center;           /* 👉 заголовок по центру */
-  font-weight: 800; font-size: 18px;
-  background: var(--tg-theme-bg-color, #fff);
-  border-bottom: 1px solid var(--tg-theme-hint-color, #e5e7eb);
-}
+.abm__header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px;background:inherit;position:sticky;top:0;}
 .abm__title{font-weight:700;letter-spacing:.3px;opacity:.9;}
-.abm__close{
-  position:absolute; right:10px; top:8px;
-  width:34px; height:34px; border-radius:10px;
-  display:grid; place-items:center;
-  background:rgba(0,0,0,.06);   /* 👉 его теперь видно */
-  color:inherit; border:1px solid rgba(0,0,0,.08);
-  cursor:pointer; font-size:18px;
-}
-.abm__close:active{ transform: scale(.98); }
-.abm__content{
-  padding: 14px 14px 20px;
-  overflow:auto; flex:1;
-  display:flex; flex-direction:column; gap:10px;
-}
-/* верхние кнопки — короче и ближе друг к другу */
+.abm__close{background:transparent;border:0;font-size:20px;opacity:.7;}
+.abm__content{padding:8px 16px 16px;}
 .abm__btn{
-  width: 70%;                    /* 👉 короче примерно на 30% */
-  align-self:center;
-  padding: 12px 14px;
-  background:#2a84ff; color:#fff;
-  border:none; border-radius:10px; font-weight:700;
+  width:100%; padding:12px 14px; margin:8px 0; border:0; border-radius:12px;
+  background: var(--tg-theme-button-color, #2ea6ff); color: var(--tg-theme-button-text-color, #fff); font-weight:600;
 }
-.abm__btn + .abm__btn{ margin-top:8px; } /* 👉 меньше расстояние */
-
-.abm__or{
-  text-align:center; opacity:.7; margin:6px 0 2px;
-.abm__search input{ font-size:15px; }
+.abm__or{text-align:center;margin:10px 0;opacity:.7;}
+.abm__search{position:relative;}
 .suggest-box{display:none;position:absolute;left:0;right:0;top:100%;margin-top:6px;background:var(--tg-theme-bg-color,#fff);border:1px solid rgba(0,0,0,.08);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:2;}
 .suggest-item{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:8px 10px;cursor:pointer;}
 .suggest-item:hover{background:rgba(0,0,0,.04);}
@@ -546,17 +516,8 @@ abm__header{
 .abm__block{margin:8px 0 2px;}
 .abm__label{font-size:12px;opacity:.7;margin:6px 2px;}
 .abm__cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;}
-/* Кнопка «Сохранить» — стиль как у верхних */
-.abm__save{
-  width:70%;
-  align-self:center;
-  padding: 12px 14px;
-  background:#2a84ff; color:#fff;
-  border:none; border-radius:10px; font-weight:700;
-}
-/* «Создать» — той же ширины, что и поле */
-#abmQuickShelfName{ flex:1; }
-#abmQuickShelfBtn{ width:140px; }     /* 👉 одинаковая высота/ширина логичная */
+.abm__save{width:100%;padding:14px;border:0;border-radius:14px;margin:10px 0 14px;background:var(--tg-theme-button-color,#2ea6ff);color:var(--tg-theme-button-text-color,#fff);font-weight:700;}
+
 /* === Fullscreen modal === */
 .fs-modal{
   position: fixed; inset: 0;
