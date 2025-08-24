@@ -120,6 +120,28 @@ function makeFriendLink(code) {
   return `https://t.me/${BOT_USERNAME}/${APP_SHORT_NAME}?startapp=FRIEND_${c}`;
 }
 
+function openFsModal(id, title, contentHtml){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.innerHTML = `
+    <div class="fs-header">
+      <div class="fs-title">${title}</div>
+      <button class="fs-close" aria-label="Закрыть" onclick="closeFsModal('${id}')">✕</button>
+    </div>
+    <div class="fs-body">${contentHtml}</div>
+  `;
+  el.classList.remove('hidden');
+  el.setAttribute('aria-hidden','false');
+}
+window.closeFsModal = function(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.add('hidden');
+  el.setAttribute('aria-hidden','true');
+  el.innerHTML = '';
+};
+
+
 // ——— UI стили для экрана карты (как в мокапе)
 (function injectMapStyles(){
   const css = `
@@ -357,8 +379,8 @@ loadCurrentCollection();
       <div class="nav-tab ${currentTab === 'want_to_read' ? 'active' : ''}" onclick="switchTab('want_to_read')">Хочу прочитать</div>
     </div>
 
-   <button onclick="openAddBookModal()">+ Добавить книгу</button>
-    
+   <button onclick="openAddBook()">+ Добавить книгу</button>
+       
 
   ${renderCollectionsBar()}
   ${renderSortBar()}   
@@ -420,6 +442,10 @@ return;
     });
   });
 }
+
+window.openAddBook = function(){
+  showAddForm(true);   // true = рендерить в полноэкранной модалке
+};
 
 
 // ☑️ Переключение вкладки
@@ -633,21 +659,17 @@ window.openBook = function (id) {
 
 
 // ➕ Показ формы добавления книги
-window.showAddForm = async function() {
-  const container = document.getElementById("app");
-  container.innerHTML = `
-    <h2>➕ Добавление книги</h2>
+window.showAddForm = async function(inModal = false) {
+  const hostId = inModal ? 'fsModal' : 'app';
+  const container = document.getElementById(hostId);
+
+  const formHtml = `
     <form class="add-book-form" onsubmit="submitAddForm(event)">
-    <div class="form-block">
-        <label>Добавить по ISBN</label>
-        <div style="display:flex; gap:8px;">
-          <input id="isbnInput" placeholder="ISBN-13 или ISBN-10" inputmode="numeric" style="flex:1" />
-          <button type="button" id="scanIsbnBtn" title="Сканировать">📷</button>
-          <button type="button" id="fillFromIsbnBtn" title="Подтянуть данные">⤵︎</button>
-        </div>
-        <video id="cam" playsinline style="width:100%;max-height:40vh;display:none;"></video>
-        <div id="isbnHint" style="font-size:12px;opacity:.7;margin-top:4px;">Сканируй штрих-код EAN-13 на обложке или введи цифрами</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:8px;">
+        <button type="button" onclick="openSearchOnlineModal()" class="save-btn">🔎 Поиск онлайн</button>
+        <button type="button" onclick="openScanIsbnModal()" class="save-btn">📷 Сканировать ISBN</button>
       </div>
+
       <div class="form-block">
         <label>Название книги</label>
         <input type="text" id="title" required autocomplete="off" />
@@ -701,9 +723,13 @@ window.showAddForm = async function() {
 
 <div class="form-block">
   <label>Полки</label>
-  <div id="col-select" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
+  <div id="col-select"></div>
+
   <div style="display:flex;gap:8px;margin-top:6px;">
-    <input id="quickShelfName" placeholder="Быстрая новая полка" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;">
+    <div class="quick-shelf-row">
+  <input id="quickShelfName" placeholder="Быстрая новая полка">
+  <button type="button" id="quickShelfBtn">＋ Создать</button>
+</div>
     <button type="button" id="quickShelfBtn">＋ Создать</button>
   </div>
 </div>
@@ -714,6 +740,12 @@ window.showAddForm = async function() {
       </div>
     </form>
   `;
+ if(inModal){
+    openFsModal('fsModal', 'ДОБАВИТЬ КНИГУ', formHtml);
+  }else{
+    container.innerHTML = `<h2>➕ Добавление книги</h2>` + formHtml;
+  }
+ 
 // подгрузим полки и чекбоксы
 collections = await listCollections(userId);
 document.getElementById('col-select').innerHTML = collections.map(c => `
@@ -965,6 +997,56 @@ async function handleBookSearch(e) {
   ).join("");
 }
 
+window.openSearchOnlineModal = function(){
+  openFsModal('searchModal', 'ПОИСК ОНЛАЙН', `
+    <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <input id="onlineQuery" placeholder="Название книги" style="flex:1; padding:10px; border:1px solid #ddd; border-radius:10px;">
+      <button type="button" onclick="runOnlineSearch()" class="save-btn">Найти</button>
+    </div>
+    <div id="onlineResults"></div>
+  `);
+};
+
+window.runOnlineSearch = async function(){
+  const q = document.getElementById('onlineQuery').value.trim();
+  if(q.length < 2) return;
+  const res = await searchOnlineBooks(q); // уже есть в api.js
+  const box = document.getElementById('onlineResults');
+  box.innerHTML = (res||[]).slice(0,12).map(b => `
+    <div class="search-result" onclick="pickOnlineResult(${JSON.stringify(b).replace(/"/g,'&quot;')})">
+      <img src="${(b.cover_url||'').replace(/^http:\/\//,'https://')}" alt="">
+      <div>
+        <div><b>${escapeHtml(b.title||'')}</b></div>
+        <div style="opacity:.7">${escapeHtml(b.author||'')}</div>
+      </div>
+    </div>
+  `).join('') || '<div style="opacity:.7">Ничего не найдено</div>';
+};
+
+window.pickOnlineResult = function(b){
+  // проставляем в форму
+  const t = document.getElementById('title'); if(t) t.value = b.title || '';
+  const a = document.getElementById('author'); if(a) a.value = b.author || '';
+  const u = (b.cover_url||'').replace(/^http:\/\//,'https://');
+  const cu = document.getElementById('cover_url'); if(cu) cu.value = u;
+  const pv = document.getElementById('coverPreview');
+  if(pv){ pv.src = u; pv.style.display = u ? 'block' : 'none'; }
+  closeFsModal('searchModal');
+  // остаёмся в экране «Добавить книгу» (он открыт в fsModal)
+};
+
+window.openScanIsbnModal = function(){
+  openFsModal('searchModal', 'СКАНИРОВАТЬ ISBN', `
+    <div style="margin-bottom:8px; opacity:.75; font-size:13px">Наведи камеру на штрих‑код (EAN‑13)</div>
+    <input id="isbnInput" placeholder="или введи вручную" inputmode="numeric" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:10px; margin-bottom:8px;">
+    <div style="display:flex; gap:8px; margin-bottom:8px;">
+      <button type="button" class="save-btn" onclick="startScan()">Включить камеру</button>
+      <button type="button" class="back-btn" onclick="fillFromIsbn();">Подтянуть по ISBN</button>
+    </div>
+    <video id="cam" playsinline style="width:100%; max-height:40vh; display:none;"></video>
+  `);
+};
+// твои существующие startScan(), stopScan(), fillFromIsbn() — уже есть. Они будут работать в этой модалке.
 
 window.selectBook = function(title, author, coverUrl) {
   document.getElementById("title").value = title;
@@ -1035,9 +1117,13 @@ window.editBook = async function(id) {
             
 <div class="form-block">
   <label>Полки</label>
-  <div id="col-select" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px"></div>
+ <div id="col-select"></div>
+
   <div style="display:flex;gap:8px;margin-top:6px;">
-    <input id="quickShelfName" placeholder="Быстрая новая полка" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;">
+    <div class="quick-shelf-row">
+  <input id="quickShelfName" placeholder="Быстрая новая полка">
+  <button type="button" id="quickShelfBtn">＋ Создать</button>
+</div>
     <button type="button" id="quickShelfBtn">＋ Создать</button>
   </div>
 </div>
@@ -2206,6 +2292,8 @@ chart.on('click', (params) => {
   // первый рендер
   await draw();
 };
+
+window.openAddBookModal = function(){ openAddBook(); };
 
 // ===== Add Book Modal (ABM) — логика =====
 let abmIsbnMeta = null;
