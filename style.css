@@ -196,7 +196,7 @@ button {
 /* 🌙 Поддержка тёмной темы Telegram WebApp */
 @media (prefers-color-scheme: dark) {
   .save-btn, .back-btn {
-  width: 100%;
+  width: 70%;
   padding: 10px;
   margin-top: 12px;
   font-size: 15px;
@@ -493,9 +493,18 @@ toastui-editor-popup {
 .abm__title{font-weight:700;letter-spacing:.3px;opacity:.9;}
 .abm__close{background:transparent;border:0;font-size:20px;opacity:.7;}
 .abm__content{padding:8px 16px 16px;}
+/* верхние кнопки — короче и ближе друг к другу */
 .abm__btn{
-  width:100%; padding:12px 14px; margin:8px 0; border:0; border-radius:12px;
-  background: var(--tg-theme-button-color, #2ea6ff); color: var(--tg-theme-button-text-color, #fff); font-weight:600;
+  width: 70%;                    /* 👉 короче примерно на 30% */
+  align-self:center;
+  padding: 12px 14px;
+  background:#2a84ff; color:#fff;
+  border:none; border-radius:10px; font-weight:700;
+}
+.abm__btn + .abm__btn{ margin-top:8px; } /* 👉 меньше расстояние */
+
+.abm__or{
+  text-align:center; opacity:.7; margin:6px 0 2px;
 }
 .abm__or{text-align:center;margin:10px 0;opacity:.7;}
 .abm__search{position:relative;}
@@ -541,7 +550,7 @@ toastui-editor-popup {
   position: absolute; right: 12px; top: 10px;
   width: 36px; height: 36px; border-radius: 10px;
   border: 1px solid rgba(0,0,0,.08);
-  background: #fff; cursor: pointer;
+  background: #911313; cursor: pointer;
 }
 
 .fs-body{ padding: 14px 16px 20px; overflow:auto; }
