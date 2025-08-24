@@ -730,8 +730,7 @@ window.showAddForm = async function(inModal = false) {
   <input id="quickShelfName" placeholder="Быстрая новая полка">
   <button type="button" id="quickShelfBtn">＋ Создать</button>
 </div>
-    <button type="button" id="quickShelfBtn">＋ Создать</button>
-  </div>
+   </div>
 </div>
 
       <div class="form-buttons">
