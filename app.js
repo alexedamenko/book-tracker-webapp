@@ -2336,7 +2336,7 @@ window.openAddBookModal = async function() {
   document.getElementById('abmSearchBtn')?.addEventListener('click', ()=>{
     document.getElementById('abmOnlineInput')?.focus();
   });
-  document.getElementById('abmScanBtn')?.addEventListener('click', abmStartScan);
+  document.getElementById('abmScanBtn')?.addEventListener('click', StartScan);
 
   // Обложка
   const pick = document.getElementById('abmCoverPick');
