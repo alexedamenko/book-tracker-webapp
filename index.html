@@ -12,22 +12,42 @@
   <div id="app">Загрузка...</div>
 <div id="zoom-overlay" class="hidden" onclick="closeZoom()">
     <img id="zoom-image" src="" alt="Обложка" /></div>
-  <!-- Add Book Modal (шторка поверх текущего фона) -->
-<div id="addBookModal" class="abm hidden" aria-hidden="true">
-  <div class="abm__overlay" onclick="closeAddBookModal()"></div>
+  
+<!-- === FULLSCREEN Add Book Sheet === -->
+<div id="addBookModal" class="abm hidden" role="dialog" aria-modal="true">
+  <div class="abm__sheet" tabindex="-1">
+    <header class="abm__header">
+      <h3 class="abm__title">ДОБАВИТЬ КНИГУ</h3>
+      <button id="abmCloseBtn" class="abm__close" aria-label="Закрыть">✕</button>
+    </header>
 
-  <div class="abm__sheet" role="dialog" aria-modal="true">
-    <div class="abm__header">
-      <div class="abm__title">ДОБАВИТЬ КНИГУ</div>
-      <button class="abm__close" onclick="closeAddBookModal()">✕</button>
-    </div>
-
-    <div class="abm__content">
-      <!-- Верхние кнопки -->
-      <button id="abmSearchBtn" class="abm__btn">Поиск онлайн</button>
-      <button id="abmScanBtn" class="abm__btn">Сканировать ISBN код</button>
+    <div class="abm__content" id="abmContent">
+      <!-- Вкладка выбора способа добавления -->
+      <div class="abm__buttons">
+        <button class="abm__btn" id="abmSearchBtn">Поиск онлайн</button>
+        <button class="abm__btn" id="abmIsbnBtn">Сканировать ISBN</button>
+      </div>
 
       <div class="abm__or">или добавить вручную</div>
+
+      <!-- сюда подмонтируем РОВНО твою текущую форму из showAddForm() -->
+      <div id="abmManualMount"></div>
+    </div>
+
+    <!-- Всплывающее окно поиска -->
+    <div id="abmSearchSheet" class="abm-search hidden" aria-hidden="true">
+      <div class="abm-search__header">
+        <div class="abm-search__title">Поиск книги</div>
+        <button class="abm-search__close" id="abmSearchClose">✕</button>
+      </div>
+      <div class="abm-search__body">
+        <input id="abmSearchInput" class="abm-search__input" placeholder="Введите название…">
+        <div id="abmSearchList" class="abm-search__list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- === /FULLSCREEN Add Book Sheet === -->
 
       <!-- Быстрый онлайн-поиск -->
       <div class="abm__search">
